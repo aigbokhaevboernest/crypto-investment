@@ -3,10 +3,11 @@ import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
+import { useAdmin } from "@/hooks/use-admin";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Users, ArrowDownToLine, History, ArrowUpFromLine, ShieldCheck,
-  Layers, Settings, LogOut, Moon, Sun, Menu, X,
+  Layers, Settings, LogOut, Moon, Sun, Menu, X, Shield,
 } from "lucide-react";
 
 const NAV = [
@@ -23,6 +24,7 @@ const NAV = [
 export const DashboardLayout = ({ children }: { children?: ReactNode }) => {
   const { user, loading, signOut } = useAuth();
   const { theme, toggle } = useTheme();
+  const { isAdmin } = useAdmin();
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
@@ -60,6 +62,12 @@ export const DashboardLayout = ({ children }: { children?: ReactNode }) => {
             </Link>
           );
         })}
+        {isAdmin && (
+          <Link to="/admin" onClick={() => setOpen(false)}
+            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition border border-gold/30 bg-gold/5 text-gold hover:bg-gold/10 mt-3">
+            <Shield className="h-4 w-4" /> Admin Panel
+          </Link>
+        )}
       </nav>
       <div className="p-3 border-t border-sidebar-border">
         <button onClick={async () => { await signOut(); navigate("/"); }}
