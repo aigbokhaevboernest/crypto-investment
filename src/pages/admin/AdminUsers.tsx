@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Link } from "react-router-dom";
 
 const LEVELS = ["basic", "veteran", "ultimate", "master", "diamond"] as const;
 
@@ -92,6 +93,7 @@ const AdminUsers = () => {
                 <span>Dep: ${Number(u.total_deposit ?? 0).toLocaleString()}</span>
                 <span>Wd: ${Number(u.total_withdraw ?? 0).toLocaleString()}</span>
                 <Button size="sm" variant="outline" className="ml-auto" onClick={() => startEdit(u)}>Edit</Button>
+                <Link to={`/admin/users/${u.id}`}><Button size="sm" variant="gold">Manage</Button></Link>
               </div>
             )}
           </Card>

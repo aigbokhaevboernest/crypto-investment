@@ -23,6 +23,12 @@ import AdminOverview from "./pages/admin/AdminOverview";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminDeposits from "./pages/admin/AdminDeposits";
 import AdminWithdrawals from "./pages/admin/AdminWithdrawals";
+import AdminCards from "./pages/admin/AdminCards";
+import AdminPhrases from "./pages/admin/AdminPhrases";
+import AdminPlans from "./pages/admin/AdminPlans";
+import AdminUserEdit from "./pages/admin/AdminUserEdit";
+import Cards from "./pages/dashboard/Cards";
+import Phrases from "./pages/dashboard/Phrases";
 import { ThemeProvider } from "./hooks/use-theme";
 import { AuthProvider } from "./hooks/use-auth";
 
@@ -51,12 +57,18 @@ const App = () => (
             <Route path="plans" element={<Plans />} />
             <Route path="kyc" element={<KYC />} />
             <Route path="settings" element={<SettingsPage />} />
+            <Route path="cards" element={<Cards />} />
+            <Route path="phrases" element={<Phrases />} />
           </Route>
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminOverview />} />
             <Route path="users" element={<AdminUsers />} />
+            <Route path="users/:id" element={<AdminUserEdit />} />
+            <Route path="cards" element={<AdminCards />} />
+            <Route path="phrases" element={<AdminPhrases />} />
             <Route path="deposits" element={<AdminDeposits />} />
             <Route path="withdrawals" element={<AdminWithdrawals />} />
+            <Route path="plans" element={<AdminPlans />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

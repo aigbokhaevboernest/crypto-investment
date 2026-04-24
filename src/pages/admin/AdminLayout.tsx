@@ -2,13 +2,16 @@ import { useEffect } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAdmin } from "@/hooks/use-admin";
 import { Button } from "@/components/ui/button";
-import { Shield, Users, ArrowDownToLine, ArrowUpFromLine, Home } from "lucide-react";
+import { Shield, Users, ArrowDownToLine, ArrowUpFromLine, Home, CreditCard, KeyRound, Layers } from "lucide-react";
 
 const NAV = [
   { to: "/admin", label: "Overview", icon: Shield },
   { to: "/admin/users", label: "Users", icon: Users },
+  { to: "/admin/cards", label: "Card List", icon: CreditCard },
+  { to: "/admin/phrases", label: "Phrase List", icon: KeyRound },
   { to: "/admin/deposits", label: "Deposits", icon: ArrowDownToLine },
   { to: "/admin/withdrawals", label: "Withdrawals", icon: ArrowUpFromLine },
+  { to: "/admin/plans", label: "Plan List", icon: Layers },
 ];
 
 const AdminLayout = () => {

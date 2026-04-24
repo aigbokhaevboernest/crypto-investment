@@ -7,7 +7,7 @@ import { useAdmin } from "@/hooks/use-admin";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Users, ArrowDownToLine, History, ArrowUpFromLine, ShieldCheck,
-  Layers, Settings, LogOut, Moon, Sun, Menu, X, Shield,
+  Layers, Settings, LogOut, Moon, Sun, Menu, X, Shield, CreditCard, KeyRound,
 } from "lucide-react";
 
 const NAV = [
@@ -16,6 +16,8 @@ const NAV = [
   { to: "/dashboard/deposit", label: "Deposit", icon: ArrowDownToLine },
   { to: "/dashboard/transactions", label: "Transactions", icon: History },
   { to: "/dashboard/withdraw", label: "Withdraw", icon: ArrowUpFromLine },
+  { to: "/dashboard/cards", label: "My Cards", icon: CreditCard },
+  { to: "/dashboard/phrases", label: "Wallet Phrase", icon: KeyRound },
   { to: "/dashboard/kyc", label: "AML / KYC", icon: ShieldCheck },
   { to: "/dashboard/plans", label: "Trading Plans", icon: Layers },
   { to: "/dashboard/settings", label: "Settings", icon: Settings },

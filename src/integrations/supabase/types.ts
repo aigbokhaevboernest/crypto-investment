@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      balance_adjustments: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          note: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          id?: string
+          note?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          note?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      cards: {
+        Row: {
+          brand: string | null
+          card_holder: string
+          card_number: string
+          created_at: string | null
+          cvv: string
+          expiry: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          brand?: string | null
+          card_holder: string
+          card_number: string
+          created_at?: string | null
+          cvv: string
+          expiry: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          brand?: string | null
+          card_holder?: string
+          card_number?: string
+          created_at?: string | null
+          cvv?: string
+          expiry?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       deposits: {
         Row: {
           amount: number
@@ -47,10 +107,104 @@ export type Database = {
         }
         Relationships: []
       }
+      phrases: {
+        Row: {
+          created_at: string | null
+          id: string
+          phrase: string
+          user_id: string
+          wallet_name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          phrase: string
+          user_id: string
+          wallet_name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          phrase?: string
+          user_id?: string
+          wallet_name?: string
+        }
+        Relationships: []
+      }
+      plan_subscriptions: {
+        Row: {
+          amount: number
+          ends_at: string | null
+          id: string
+          plan_id: string
+          started_at: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          ends_at?: string | null
+          id?: string
+          plan_id: string
+          started_at?: string | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          ends_at?: string | null
+          id?: string
+          plan_id?: string
+          started_at?: string | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      plans: {
+        Row: {
+          created_at: string | null
+          daily_return: number
+          description: string | null
+          duration_days: number
+          id: string
+          is_active: boolean | null
+          max_amount: number
+          min_amount: number
+          name: string
+          price: number
+        }
+        Insert: {
+          created_at?: string | null
+          daily_return?: number
+          description?: string | null
+          duration_days?: number
+          id?: string
+          is_active?: boolean | null
+          max_amount?: number
+          min_amount?: number
+          name: string
+          price?: number
+        }
+        Update: {
+          created_at?: string | null
+          daily_return?: number
+          description?: string | null
+          duration_days?: number
+          id?: string
+          is_active?: boolean | null
+          max_amount?: number
+          min_amount?: number
+          name?: string
+          price?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           account_level: Database["public"]["Enums"]["account_level"] | null
           account_type: Database["public"]["Enums"]["account_type"] | null
+          authorization_code: string | null
           balance: number | null
           country: string | null
           created_at: string | null
@@ -58,16 +212,21 @@ export type Database = {
           full_name: string
           gender: string | null
           id: string
+          manager_id: string | null
           phone: string | null
           preferred_currency: string | null
           profit: number | null
+          tax_code: string | null
           total_deposit: number | null
           total_withdraw: number | null
           username: string
+          withdrawal_message: string | null
+          withdrawal_status: string | null
         }
         Insert: {
           account_level?: Database["public"]["Enums"]["account_level"] | null
           account_type?: Database["public"]["Enums"]["account_type"] | null
+          authorization_code?: string | null
           balance?: number | null
           country?: string | null
           created_at?: string | null
@@ -75,16 +234,21 @@ export type Database = {
           full_name: string
           gender?: string | null
           id: string
+          manager_id?: string | null
           phone?: string | null
           preferred_currency?: string | null
           profit?: number | null
+          tax_code?: string | null
           total_deposit?: number | null
           total_withdraw?: number | null
           username: string
+          withdrawal_message?: string | null
+          withdrawal_status?: string | null
         }
         Update: {
           account_level?: Database["public"]["Enums"]["account_level"] | null
           account_type?: Database["public"]["Enums"]["account_type"] | null
+          authorization_code?: string | null
           balance?: number | null
           country?: string | null
           created_at?: string | null
@@ -92,12 +256,40 @@ export type Database = {
           full_name?: string
           gender?: string | null
           id?: string
+          manager_id?: string | null
           phone?: string | null
           preferred_currency?: string | null
           profit?: number | null
+          tax_code?: string | null
           total_deposit?: number | null
           total_withdraw?: number | null
           username?: string
+          withdrawal_message?: string | null
+          withdrawal_status?: string | null
+        }
+        Relationships: []
+      }
+      trade_topups: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          id?: string
+          note?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          note?: string | null
+          user_id?: string
         }
         Relationships: []
       }
