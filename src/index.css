@@ -169,4 +169,28 @@ All colors MUST be HSL.
     100% { transform: rotate(360deg) translateX(60px) rotate(-360deg); }
   }
   .animate-orbit { animation: orbit 3s linear infinite; }
+
+  @keyframes float-card {
+    0%, 100% { transform: translateY(0) rotate(var(--tw-rotate, 0)); }
+    50% { transform: translateY(-14px) rotate(var(--tw-rotate, 0)); }
+  }
+  .animate-float-card { animation: float-card 6s ease-in-out infinite; }
+
+  @keyframes word-rise {
+    0% { opacity: 0; transform: translateY(40px) scale(0.9); filter: blur(10px); }
+    100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  }
+  .animate-word-rise { animation: word-rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+  @keyframes glow-pulse {
+    0%, 100% { opacity: 0.35; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.1); }
+  }
+  .animate-glow-pulse { animation: glow-pulse 5s ease-in-out infinite; }
+
+  @keyframes count-flash {
+    0% { color: hsl(var(--gold-glow)); }
+    100% { color: hsl(var(--gold)); }
+  }
+  .animate-count-flash { animation: count-flash 1.5s ease-out; }
 }
