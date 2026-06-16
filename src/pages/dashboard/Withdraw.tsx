@@ -35,8 +35,8 @@ export default function Withdraw() {
   // Load currency preference
   useEffect(() => {
     if (!user) return;
-    supabase.from("profiles").select("preferred_currency").eq("id", user.id).maybeSingle()
-      .then(({ data }) => data?.preferred_currency && setCurrency(data.preferred_currency));
+    supabase.from("profiles").select("currency").eq("id", user.id).maybeSingle()
+      .then(({ data }) => data?.currency && setCurrency(data.currency));
   }, [user?.id]);
 
   // Load balance
