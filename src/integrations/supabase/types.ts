@@ -107,6 +107,33 @@ export type Database = {
         }
         Relationships: []
       }
+      password_reset_codes: {
+        Row: {
+          code: string
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          used: boolean
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          used?: boolean
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          used?: boolean
+        }
+        Relationships: []
+      }
       phrases: {
         Row: {
           created_at: string | null
@@ -346,7 +373,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      complete_password_reset: {
+        Args: { _code: string; _email: string; _new_password: string }
+        Returns: boolean
+      }
       get_email_by_username: { Args: { _username: string }; Returns: string }
+      get_profile_by_email: {
+        Args: { _email: string }
+        Returns: {
+          email: string
+          first_name: string
+          full_name: string
+          id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -354,7 +394,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      issue_password_reset_code: {
+        Args: { _code: string; _email: string }
+        Returns: undefined
+      }
       promote_to_admin: { Args: { _email: string }; Returns: undefined }
+      verify_password_reset_code: {
+        Args: { _code: string; _email: string }
+        Returns: boolean
+      }
     }
     Enums: {
       account_level: "basic" | "veteran" | "ultimate" | "master" | "diamond"
