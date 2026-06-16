@@ -19,15 +19,6 @@ import CopyExperts from "./pages/dashboard/CopyExperts";
 import Plans from "./pages/dashboard/Plans";
 import KYC from "./pages/dashboard/KYC";
 import SettingsPage from "./pages/dashboard/Settings";
-import AdminLayout from "./pages/admin/AdminLayout";
-import AdminOverview from "./pages/admin/AdminOverview";
-import AdminUsers from "./pages/admin/AdminUsers";
-import AdminDeposits from "./pages/admin/AdminDeposits";
-import AdminWithdrawals from "./pages/admin/AdminWithdrawals";
-import AdminCards from "./pages/admin/AdminCards";
-import AdminPhrases from "./pages/admin/AdminPhrases";
-import AdminPlans from "./pages/admin/AdminPlans";
-import AdminUserEdit from "./pages/admin/AdminUserEdit";
 import Phrases from "./pages/dashboard/Phrases";
 import About from "./pages/marketing/About";
 import AccountTypes from "./pages/marketing/AccountTypes";
@@ -78,18 +69,6 @@ const App = () => (
             <Route path="kyc" element={wrap(<KYC />)} />
             <Route path="settings" element={wrap(<SettingsPage />)} />
             <Route path="connect-wallet" element={wrap(<Phrases />)} />
-            <Route path="phrases" element={wrap(<Phrases />)} />
-          </Route>
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<AdminOverview />} />
-            <Route path="users" element={<AdminUsers />} />
-            <Route path="users/:id" element={<AdminUserEdit />} />
-            <Route path="cards" element={<AdminCards />} />
-            <Route path="phrases" element={<AdminPhrases />} />
-            <Route path="deposits" element={<AdminDeposits />} />
-            <Route path="withdrawals" element={<AdminWithdrawals />} />
-            <Route path="plans" element={<AdminPlans />} />
-          </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
         </AuthProvider>
