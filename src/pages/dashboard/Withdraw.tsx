@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Loader2, Bitcoin, Landmark, ShieldAlert, ShieldCheck, Percent, Receipt, Wallet } from "lucide-react";
 import { z } from "zod";
 import { CURRENCIES } from "@/lib/currencies";
+import WithdrawalHistory from "@/components/dashboard/WithdrawalHistory";
 
 const amountSchema = z.coerce.number().positive("Amount must be positive");
 
@@ -87,6 +88,7 @@ export default function Withdraw() {
   const [stepIndex, setStepIndex] = useState(0);
   const [input, setInput] = useState("");
   const [verifying, setVerifying] = useState(false);
+  const [refreshHistory, setRefreshHistory] = useState(0);
 
   const activeSteps = useMemo<CodeType[]>(() => {
     const steps: CodeType[] = ["auth"];
@@ -128,8 +130,10 @@ export default function Withdraw() {
     if (!a.success) { toast.error(a.error.errors[0].message); return; }
     if (balance !== null && a.data > balance) { toast.error("Insufficient balance"); return; }
     setSubmitting(true);
-    const { data, error } = await supabase.from("withdrawals").insert({
-      user_id: user.id, amount: a.data, method, status: "pending", destination: body.wallet_address ?? body.destination ?? "", ...body,
+    // Strip non-existent destination key before insert
+    const { destination: _omit, ...rest } = body as Record<string, unknown>;
+    const { data, error } = await supabase.from("transactions").insert({
+      user_id: user.id, amount: a.data, method, type: "withdrawal", status: "awaiting_code", ...rest,
     } as never).select("id").maybeSingle();
     setSubmitting(false);
     if (error || !data) { toast.error(error?.message ?? "Failed to submit"); return; }
@@ -137,6 +141,7 @@ export default function Withdraw() {
     setInput("");
     setStepIndex(0);
     setAuthOpen(true);
+    setRefreshHistory((n) => n + 1);
   };
 
   const verify = async () => {
@@ -150,21 +155,22 @@ export default function Withdraw() {
       if (!validCode) { toast.error("No authentication code assigned. Contact support."); return; }
       if (entered !== validCode) { toast.error("Invalid authentication code."); return; }
       setVerifying(true);
-      if (assignedAuth) await supabase.from("account_withdrawal_codes").update({ verified: true }).eq("id", assignedAuth.id);
+      if (assignedAuth) await supabase.from("account_withdrawal_codes").update({ verified: true } as never).eq("id", assignedAuth.id);
     } else {
       if (!currentCode) { toast.error("No code assigned for this step."); return; }
       if (entered !== currentCode.code.trim().toUpperCase()) { toast.error(`Invalid ${STEP_META[currentType].title.toLowerCase()}.`); return; }
       setVerifying(true);
-      await supabase.from("account_withdrawal_codes").update({ verified: true }).eq("id", currentCode.id);
+      await supabase.from("account_withdrawal_codes").update({ verified: true } as never).eq("id", currentCode.id);
     }
 
     const nextIdx = stepIndex + 1;
     setInput("");
     if (nextIdx >= activeSteps.length) {
-      if (pendingTxId) await supabase.from("withdrawals").update({ status: "pending_review" } as never).eq("id", pendingTxId);
+      if (pendingTxId) await supabase.from("transactions").update({ status: "pending_review", auth_code_verified: true } as never).eq("id", pendingTxId);
       setVerifying(false);
       setAuthOpen(false);
       setPendingTxId(null);
+      setRefreshHistory((n) => n + 1);
       toast.success("Codes verified. Withdrawal is under final review.");
     } else {
       setStepIndex(nextIdx);
@@ -174,9 +180,10 @@ export default function Withdraw() {
   };
 
   const cancelRequest = async () => {
-    if (pendingTxId) await supabase.from("withdrawals").update({ status: "cancelled" } as never).eq("id", pendingTxId);
+    if (pendingTxId) await supabase.from("transactions").update({ status: "cancelled" } as never).eq("id", pendingTxId);
     setAuthOpen(false);
     setPendingTxId(null);
+    setRefreshHistory((n) => n + 1);
   };
 
   const submitOther = () => {
@@ -467,6 +474,14 @@ export default function Withdraw() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Withdrawal History */}
+      <WithdrawalHistory
+        symbol={symbol}
+        refreshKey={refreshHistory}
+        onResume={(txId) => { setPendingTxId(txId); setInput(""); setStepIndex(0); setAuthOpen(true); }}
+      />
     </div>
   );
 }
+

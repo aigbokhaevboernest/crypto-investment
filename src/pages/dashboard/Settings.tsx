@@ -12,20 +12,20 @@ import { CURRENCIES } from "@/lib/currencies";
 
 const Settings = () => {
   const { user } = useAuth();
-  const [form, setForm] = useState({ full_name: "", username: "", phone: "", country: "", preferred_currency: "USD" });
+  const [form, setForm] = useState({ full_name: "", username: "", phone: "", country: "", currency: "USD" });
   const [pwd, setPwd] = useState({ next: "", confirm: "" });
   const [loading, setLoading] = useState(false);
   const [pwdLoading, setPwdLoading] = useState(false);
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("profiles").select("full_name, username, phone, country, preferred_currency").eq("id", user.id).maybeSingle()
+    supabase.from("profiles").select("full_name, username, phone, country, currency").eq("id", user.id).maybeSingle()
       .then(({ data }) => data && setForm({
         full_name: data.full_name || "",
         username: data.username || "",
         phone: data.phone || "",
         country: data.country || "",
-        preferred_currency: data.preferred_currency || "USD",
+        currency: data.currency || "USD",
       }));
   }, [user]);
 
@@ -75,7 +75,7 @@ const Settings = () => {
             </select>
           </div>
           <div className="space-y-1.5"><Label>Preferred Currency</Label>
-            <select value={form.preferred_currency} onChange={e => setForm({ ...form, preferred_currency: e.target.value })}
+            <select value={form.currency} onChange={e => setForm({ ...form, currency: e.target.value })}
               className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm text-white">
               {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} — {c.name} ({c.country})</option>)}
             </select>

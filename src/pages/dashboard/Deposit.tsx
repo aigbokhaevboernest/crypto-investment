@@ -20,7 +20,10 @@ type Method = keyof typeof WALLETS;
 const Deposit = () => {
   const { user } = useAuth();
   const [method, setMethod] = useState<Method>("BTC");
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState(() => {
+    const u = new URLSearchParams(window.location.search);
+    return u.get("amount") || "";
+  });
   const [proof, setProof] = useState<File | null>(null);
   const [proofPreview, setProofPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -55,13 +58,15 @@ const Deposit = () => {
     if (!user) return;
     if (!proof) return toast.error("Please upload proof of payment");
     setLoading(true);
-    const { error } = await supabase.from("deposits").insert({
+    const { error } = await supabase.from("transactions").insert({
       user_id: user.id,
+      type: "deposit",
       amount: parseFloat(amount),
       method,
       wallet_address: WALLETS[method].addr,
       proof_url: proofPreview ?? proof.name,
-    });
+      status: "pending",
+    } as never);
     setLoading(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Deposit submitted. Awaiting confirmation.");

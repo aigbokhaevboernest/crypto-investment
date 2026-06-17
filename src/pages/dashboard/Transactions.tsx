@@ -2,49 +2,45 @@ import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { CURRENCIES } from "@/lib/currencies";
+import { StatusPill } from "./Dashboard";
 
-type Tx = { id: string; amount: number; method: string; status: string; created_at: string; type: "Deposit" | "Withdrawal" };
+type Tx = { id: string; amount: number; method: string; status: string; created_at: string; type: string };
 
 const Transactions = () => {
   const { user } = useAuth();
   const [txs, setTxs] = useState<Tx[]>([]);
+  const [currency, setCurrency] = useState("USD");
+  const symbol = CURRENCIES.find((c) => c.code === currency)?.symbol ?? "$";
 
   useEffect(() => {
     if (!user) return;
-    Promise.all([
-      supabase.from("deposits").select("id, amount, method, status, created_at").eq("user_id", user.id),
-      supabase.from("withdrawals").select("id, amount, method, status, created_at").eq("user_id", user.id),
-    ]).then(([d, w]) => {
-      const combined: Tx[] = [
-        ...((d.data || []) as any[]).map(x => ({ ...x, type: "Deposit" as const })),
-        ...((w.data || []) as any[]).map(x => ({ ...x, type: "Withdrawal" as const })),
-      ].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
-      setTxs(combined);
-    });
+    supabase.from("profiles").select("currency").eq("id", user.id).maybeSingle()
+      .then(({ data }) => data?.currency && setCurrency(data.currency));
+
+    supabase
+      .from("transactions")
+      .select("id, amount, method, status, created_at, type")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .then(({ data }) => setTxs((data as Tx[] | null) ?? []));
   }, [user]);
 
   return (
     <div>
-      <h1 className="text-2xl font-black mb-6">Transaction History</h1>
+      <h1 className="text-2xl font-black mb-6 text-white">Transaction History</h1>
       <Card className="overflow-hidden">
         <div className="grid grid-cols-[1fr_1fr_1fr_1fr_auto] gap-3 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border bg-muted/30">
           <div>Type</div><div>Method</div><div className="text-right">Amount</div><div className="hidden md:block">Date</div><div>Status</div>
         </div>
         {txs.length === 0 && <div className="p-8 text-center text-muted-foreground text-sm">No transactions yet.</div>}
-        {txs.map(t => (
+        {txs.map((t) => (
           <div key={t.id} className="grid grid-cols-[1fr_1fr_1fr_1fr_auto] gap-3 items-center px-4 py-3 border-b border-border last:border-0 text-sm">
-            <div className="font-medium">{t.type}</div>
-            <div>{t.method}</div>
-            <div className="text-right tabular-nums font-bold">${Number(t.amount).toFixed(2)}</div>
+            <div className="font-medium capitalize">{t.type}</div>
+            <div>{t.method || "—"}</div>
+            <div className="text-right tabular-nums font-bold">{symbol}{Number(t.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             <div className="hidden md:block text-muted-foreground text-xs">{new Date(t.created_at).toLocaleString()}</div>
-            <span
-              className="text-xs font-bold uppercase px-2 py-1 rounded border"
-              style={
-                t.status === "approved" ? { backgroundColor: "rgba(34,197,94,0.15)", color: "#22c55e", borderColor: "rgba(34,197,94,0.4)" } :
-                t.status === "rejected" ? { backgroundColor: "rgba(239,68,68,0.15)", color: "#ef4444", borderColor: "rgba(239,68,68,0.4)" } :
-                { backgroundColor: "rgba(255,230,0,0.15)", color: "#FFE600", borderColor: "#FFE600" }
-              }
-            >{t.status}</span>
+            <StatusPill status={t.status} />
           </div>
         ))}
       </Card>

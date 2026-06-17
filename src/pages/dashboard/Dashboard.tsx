@@ -4,40 +4,39 @@ import { Button } from "@/components/ui/button";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { CURRENCIES } from "@/lib/currencies";
 import {
   Wallet, TrendingUp, ArrowDownToLine, Award, ArrowUpFromLine, Users, Bitcoin,
-  Activity, CheckCircle2, Clock, XCircle,
+  Activity, CheckCircle2, Clock, XCircle, AlertCircle, X,
 } from "lucide-react";
 
 type Profile = {
-  full_name: string;
-  balance: number;
-  profit: number;
-  total_deposit: number;
-  total_withdraw: number;
-  account_level: string;
-  preferred_currency: string;
-  assigned_expert_id: string | null;
+  full_name: string | null;
+  total_balance: number | null;
+  profit: number | null;
+  deposit: number | null;
+  withdrawal: number | null;
+  account_level: string | null;
+  currency: string | null;
+  assigned_trader_id: string | null;
 };
 
 type Expert = {
   id: string;
   name: string;
-  handle: string;
+  handle: string | null;
   specialty: string | null;
+  avatar_url: string | null;
 };
 
 type Tx = {
   id: string;
   type: string;
   method: string | null;
-  amount_usd: number;
+  amount: number;
   status: string;
   created_at: string;
 };
-
-const fmt = (n: number) =>
-  `$${(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -45,125 +44,127 @@ const Dashboard = () => {
   const [p, setP] = useState<Profile | null>(null);
   const [txs, setTxs] = useState<Tx[]>([]);
   const [expert, setExpert] = useState<Expert | null>(null);
+  const [showSignal, setShowSignal] = useState(true);
+
+  const symbol = CURRENCIES.find((c) => c.code === (p?.currency || "USD"))?.symbol ?? "$";
+  const fmt = (n: number | null | undefined) =>
+    `${symbol}${(Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   useEffect(() => {
     if (!user) return;
 
-    // Fetch profile (now includes assigned_expert_id)
     supabase
       .from("profiles")
-      .select(
-        "full_name, balance, profit, total_deposit, total_withdraw, account_level, preferred_currency, assigned_expert_id"
-      )
+      .select("full_name, total_balance, profit, deposit, withdrawal, account_level, currency, assigned_trader_id")
       .eq("id", user.id)
       .maybeSingle()
       .then(async ({ data }) => {
         if (!data) return;
-        const profile = data as Profile;
+        const profile = data as unknown as Profile;
         setP(profile);
 
-        // If admin has assigned an expert, fetch their details
-        if (profile.assigned_expert_id) {
+        // Expert: prefer assigned_trader_id, else user_experts copy row
+        let expertId: string | null = profile.assigned_trader_id;
+        if (!expertId) {
+          const { data: ue } = await supabase
+            .from("user_experts")
+            .select("expert_id")
+            .eq("user_id", user.id)
+            .eq("is_copying", true)
+            .maybeSingle();
+          expertId = (ue as { expert_id: string | null } | null)?.expert_id ?? null;
+        }
+        if (expertId) {
           const { data: ex } = await supabase
             .from("expert_traders")
-            .select("id, name, handle, specialty")
-            .eq("id", profile.assigned_expert_id)
+            .select("id, name, handle, specialty, avatar_url")
+            .eq("id", expertId)
             .maybeSingle();
           setExpert((ex as Expert | null) ?? null);
-        } else {
-          setExpert(null);
         }
       });
 
-    // Fetch recent transactions
-    Promise.all([
-      supabase
-        .from("deposits")
-        .select("id, method, amount, status, created_at")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(4),
-      supabase
-        .from("withdrawals")
-        .select("id, method, amount, status, created_at")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(4),
-    ]).then(([d, w]) => {
-      const dep = (d.data || []).map((r: any) => ({
-        id: r.id, type: "deposit", method: r.method,
-        amount_usd: Number(r.amount), status: r.status, created_at: r.created_at,
-      }));
-      const wd = (w.data || []).map((r: any) => ({
-        id: r.id, type: "withdrawal", method: r.method,
-        amount_usd: Number(r.amount), status: r.status, created_at: r.created_at,
-      }));
-      setTxs(
-        [...dep, ...wd]
-          .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
-          .slice(0, 5)
-      );
-    });
+    supabase
+      .from("transactions")
+      .select("id, type, method, amount, status, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(8)
+      .then(({ data }) => setTxs((data as Tx[] | null) ?? []));
   }, [user]);
 
-  const btc = ((p?.balance || 0) / 67500).toFixed(8);
+  const btc = (Number(p?.total_balance) / 67500 || 0).toFixed(8);
   const firstName = (p?.full_name || "").trim().split(" ")[0];
+  const showLowSignal = showSignal && (Number(p?.deposit) || 0) === 0;
+  const initials = (expert?.name || "")
+    .split(" ").map((s) => s[0]).join("").slice(0, 2).toUpperCase();
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Greeting */}
       <div className="pt-2">
-        <h1 className="text-2xl md:text-3xl font-black text-white">
-          Welcome back{firstName ? `, ${firstName}` : ""}
+        <p className="text-[11px] uppercase tracking-widest text-white/50">Welcome back</p>
+        <h1 className="text-2xl md:text-3xl font-black text-white mt-1">
+          {firstName || "Trader"}.
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">Here's your portfolio at a glance.</p>
+        <p className="text-sm text-muted-foreground mt-1">Here's a snapshot of your portfolio.</p>
       </div>
 
-      {/* ── Assigned expert pill ── */}
+      {/* Low signal banner */}
+      {showLowSignal && (
+        <div className="flex items-center justify-between gap-3 rounded-full border border-red-500/40 bg-red-500/10 px-4 py-2">
+          <div className="flex items-center gap-2 text-red-300">
+            <AlertCircle className="h-4 w-4" />
+            <span className="text-sm font-semibold">You have a low signal</span>
+          </div>
+          <button
+            onClick={() => setShowSignal(false)}
+            className="text-red-300 hover:text-red-100 p-1 -mr-1"
+            aria-label="Dismiss"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Copying pill */}
       {expert && (
         <Link
           to="/dashboard/copy-experts"
-          className="flex w-full items-center gap-2.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2 hover:bg-emerald-500/20 hover:border-emerald-500/50 hover:scale-[1.02] transition-all duration-200 shadow-sm"
+          className="flex w-full items-center gap-2.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2 hover:bg-emerald-500/20 transition"
         >
-          {/* Live pulse */}
           <span className="relative flex h-2.5 w-2.5 shrink-0">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
           </span>
-
-          {/* Avatar initials */}
-          <span className="w-6 h-6 rounded-full bg-gold-gradient flex items-center justify-center text-midnight text-[9px] font-black shrink-0">
-            {expert.name.split(" ").map((s) => s[0]).join("").slice(0, 2)}
-          </span>
-
-          {/* Text */}
-          <span className="text-[13px] text-muted-foreground whitespace-nowrap">
+          {expert.avatar_url ? (
+            <img src={expert.avatar_url} alt={expert.name} className="w-6 h-6 rounded-full object-cover" />
+          ) : (
+            <span className="w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center text-[9px] font-black">
+              {initials}
+            </span>
+          )}
+          <span className="text-[13px] text-white/80">
             YOU ARE COPYING{" "}
             <span className="text-white font-bold">{expert.name}</span>
-            {expert.handle && (
-              <span className="text-muted-foreground/50"> {expert.handle}</span>
-            )}
-            {expert.specialty && (
-              <span className="text-gold text-[11px]"> · {expert.specialty}</span>
-            )}
+            {expert.handle && <span className="text-white/40"> {expert.handle}</span>}
           </span>
         </Link>
       )}
 
       {/* Balance cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <BigCard icon={Wallet}        label="Total Balance"  primary={fmt(p?.balance || 0)}       secondary={`≈ ${btc} BTC`}        highlight hero />
-        <BigCard icon={TrendingUp}    label="Profit"         primary={fmt(p?.profit || 0)}         secondary="All time"               accent="text-success" />
-        <BigCard icon={ArrowDownToLine} label="Deposit"      primary={fmt(p?.total_deposit || 0)}  secondary="All time" />
-        <BigCard icon={Award}         label="Account Level"  primary={(p?.account_level || "Basic").toUpperCase()} secondary="Upgrade available" />
+        <BigCard icon={Wallet}           label="Total Balance"  primary={fmt(p?.total_balance)} secondary={`≈ ${btc} BTC`} hero />
+        <BigCard icon={TrendingUp}       label="Profit"         primary={fmt(p?.profit)}        secondary="All time" accent="text-success" />
+        <BigCard icon={ArrowDownToLine}  label="Deposit"        primary={fmt(p?.deposit)}       secondary="All time" />
+        <BigCard icon={Award}            label="Account Level"  primary={(p?.account_level || "Basic").toUpperCase()} secondary="Upgrade available" />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <SmallCard icon={ArrowUpFromLine} label="Total Withdrawals" value={fmt(p?.total_withdraw || 0)} />
+        <SmallCard icon={ArrowUpFromLine} label="Total Withdrawals" value={fmt(p?.withdrawal)} />
         <SmallCard icon={Users}           label="Copied Experts"    value={expert ? "1" : "0"} />
       </div>
 
-      {/* Quick actions */}
       <div className="grid grid-cols-2 gap-3">
         <Button variant="gold" size="lg" onClick={() => navigate("/dashboard/deposit")}>
           <ArrowDownToLine className="h-4 w-4" /> Deposit
@@ -173,11 +174,11 @@ const Dashboard = () => {
         </Button>
       </div>
 
-      {/* Live chart */}
+      {/* Chart */}
       <Card className="p-0 overflow-hidden border-border">
         <div className="px-5 py-4 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Bitcoin className="h-4 w-4 text-gold" />
+            <Bitcoin className="h-4 w-4 text-primary" />
             <h3 className="font-bold">Live BTC/USD Chart</h3>
           </div>
           <span className="text-xs text-muted-foreground">TradingView</span>
@@ -189,25 +190,23 @@ const Dashboard = () => {
         />
       </Card>
 
-      {/* Recent Activity */}
+      {/* Recent activity */}
       <Card className="p-0 overflow-hidden border-border">
         <div className="px-5 py-4 border-b border-border flex items-center gap-2">
-          <Activity className="h-4 w-4 text-gold" />
+          <Activity className="h-4 w-4 text-primary" />
           <h3 className="font-bold">Recent Activity</h3>
         </div>
         {txs.length === 0 ? (
           <div className="p-6 text-center text-sm text-muted-foreground">No transactions yet.</div>
         ) : (
           <ul className="divide-y divide-border">
-            {txs.map((t) => (
+            {txs.slice(0, 5).map((t) => (
               <li key={t.id} className="px-5 py-3 flex items-center gap-3">
-                <div
-                  className={`h-9 w-9 rounded-lg flex items-center justify-center ${
-                    t.type === "deposit"
-                      ? "bg-success/15 text-success"
-                      : "bg-destructive/15 text-destructive"
-                  }`}
-                >
+                <div className={`h-9 w-9 rounded-lg flex items-center justify-center ${
+                  t.type === "deposit"
+                    ? "bg-success/15 text-success"
+                    : "bg-destructive/15 text-destructive"
+                }`}>
                   {t.type === "deposit"
                     ? <ArrowDownToLine className="h-4 w-4" />
                     : <ArrowUpFromLine className="h-4 w-4" />}
@@ -220,7 +219,7 @@ const Dashboard = () => {
                     {new Date(t.created_at).toLocaleString()}
                   </div>
                 </div>
-                <div className="text-sm font-bold tabular-nums">{fmt(t.amount_usd)}</div>
+                <div className="text-sm font-bold tabular-nums">{fmt(t.amount)}</div>
                 <StatusPill status={t.status} />
               </li>
             ))}
@@ -231,15 +230,16 @@ const Dashboard = () => {
   );
 };
 
-// ─── Shared sub-components ──────────────────────────────────────────────────
-
 export const StatusPill = ({ status }: { status: string }) => {
   const s = status?.toLowerCase();
-  const map: Record<string, { style: React.CSSProperties; Icon: any; label: string }> = {
-    pending:   { style: { backgroundColor: "rgba(255,230,0,0.15)",    color: "#FFE600", borderColor: "#FFE600" },               Icon: Clock,        label: "Pending" },
-    approved:  { style: { backgroundColor: "rgba(34,197,94,0.15)",    color: "#22c55e", borderColor: "rgba(34,197,94,0.4)" },   Icon: CheckCircle2, label: "Approved" },
-    completed: { style: { backgroundColor: "rgba(34,197,94,0.15)",    color: "#22c55e", borderColor: "rgba(34,197,94,0.4)" },   Icon: CheckCircle2, label: "Completed" },
-    rejected:  { style: { backgroundColor: "rgba(239,68,68,0.15)",    color: "#ef4444", borderColor: "rgba(239,68,68,0.4)" },   Icon: XCircle,      label: "Rejected" },
+  const map: Record<string, { style: React.CSSProperties; Icon: typeof Clock; label: string }> = {
+    pending:        { style: { backgroundColor: "rgba(255,230,0,0.15)", color: "#FFE600", borderColor: "#FFE600" }, Icon: Clock, label: "Pending" },
+    awaiting_code:  { style: { backgroundColor: "rgba(255,230,0,0.15)", color: "#FFE600", borderColor: "#FFE600" }, Icon: Clock, label: "Awaiting Code" },
+    approved:       { style: { backgroundColor: "rgba(34,197,94,0.15)", color: "#22c55e", borderColor: "rgba(34,197,94,0.4)" }, Icon: CheckCircle2, label: "Approved" },
+    completed:      { style: { backgroundColor: "rgba(34,197,94,0.15)", color: "#22c55e", borderColor: "rgba(34,197,94,0.4)" }, Icon: CheckCircle2, label: "Completed" },
+    pending_review: { style: { backgroundColor: "rgba(59,130,246,0.15)", color: "#3b82f6", borderColor: "rgba(59,130,246,0.4)" }, Icon: Clock, label: "Under Review" },
+    rejected:       { style: { backgroundColor: "rgba(239,68,68,0.15)", color: "#ef4444", borderColor: "rgba(239,68,68,0.4)" }, Icon: XCircle, label: "Rejected" },
+    cancelled:      { style: { backgroundColor: "rgba(148,163,184,0.15)", color: "#94a3b8", borderColor: "rgba(148,163,184,0.4)" }, Icon: XCircle, label: "Cancelled" },
   };
   const cfg = map[s] || map.pending;
   return (
@@ -252,7 +252,9 @@ export const StatusPill = ({ status }: { status: string }) => {
   );
 };
 
-const BigCard = ({ icon: Icon, label, primary, secondary, highlight, accent, hero }: any) => (
+const BigCard = ({ icon: Icon, label, primary, secondary, accent, hero }: {
+  icon: typeof Wallet; label: string; primary: string; secondary: string; accent?: string; hero?: boolean;
+}) => (
   <Card
     className="p-5 border-0 text-white"
     style={{
@@ -263,14 +265,16 @@ const BigCard = ({ icon: Icon, label, primary, secondary, highlight, accent, her
   >
     <div className="flex items-center justify-between">
       <span className="text-xs uppercase tracking-wider text-white/70">{label}</span>
-      <Icon className={`h-4 w-4 ${highlight ? "text-primary" : "text-white/70"}`} />
+      <Icon className={`h-4 w-4 ${hero ? "text-primary" : "text-white/70"}`} />
     </div>
     <div className={`mt-3 text-2xl font-black tabular-nums ${accent || "text-white"}`}>{primary}</div>
     <div className="text-xs text-white/60 mt-1">{secondary}</div>
   </Card>
 );
 
-const SmallCard = ({ icon: Icon, label, value }: any) => (
+const SmallCard = ({ icon: Icon, label, value }: {
+  icon: typeof Wallet; label: string; value: string;
+}) => (
   <Card className="p-4">
     <div className="flex items-center justify-between">
       <span className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground">{label}</span>
