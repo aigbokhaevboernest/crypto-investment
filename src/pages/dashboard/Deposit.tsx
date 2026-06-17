@@ -30,10 +30,10 @@ const Deposit = () => {
     if (!user) return;
     supabase
       .from("profiles")
-      .select("preferred_currency")
+      .select("currency")
       .eq("id", user.id)
       .maybeSingle()
-      .then(({ data }) => data?.preferred_currency && setCurrency(data.preferred_currency));
+      .then(({ data }) => data?.currency && setCurrency(data.currency));
   }, [user]);
 
   const symbol = CURRENCIES.find((c) => c.code === currency)?.symbol ?? currency;
@@ -68,7 +68,8 @@ const Deposit = () => {
     setAmount(""); setProof(null); setProofPreview(null);
   };
 
-  const qr = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${WALLETS[method].addr}`;
+  // Bigger QR — 200px for easy scanning
+  const qr = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${WALLETS[method].addr}`;
 
   return (
     <div className="max-w-lg">
@@ -77,8 +78,9 @@ const Deposit = () => {
         Send crypto to the address below, then submit proof of payment.
       </p>
 
-      <Card className="p-4 space-y-4">
-        {/* Method tabs — slim */}
+      {/* pb-10 pushes the card bottom past the visible fold */}
+      <Card className="p-4 pb-10 space-y-4">
+        {/* Method tabs */}
         <div className="grid grid-cols-3 gap-2">
           {(Object.keys(WALLETS) as Method[]).map((m) => {
             const active = method === m;
@@ -100,16 +102,16 @@ const Deposit = () => {
           })}
         </div>
 
-        {/* QR + address — side by side on wider screens, stacked on mobile */}
-        <div className="flex flex-col sm:flex-row items-center gap-3 p-3 rounded-lg bg-muted/30">
+        {/* QR — centred, larger */}
+        <div className="flex flex-col items-center gap-3 p-4 rounded-lg bg-muted/30">
           <img
             src={qr}
             alt={`${method} QR`}
-            className="rounded-md bg-white p-1.5 shrink-0"
-            width={100}
-            height={100}
+            className="rounded-lg bg-white p-2"
+            width={200}
+            height={200}
           />
-          <div className="w-full min-w-0">
+          <div className="w-full">
             <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">
               {method} Wallet Address
             </p>
@@ -137,7 +139,6 @@ const Deposit = () => {
 
         {/* Form */}
         <form onSubmit={submit} className="space-y-3">
-          {/* Amount */}
           <div className="space-y-1">
             <Label className="text-xs">Amount ({currency})</Label>
             <div className="relative">
@@ -157,7 +158,6 @@ const Deposit = () => {
             </div>
           </div>
 
-          {/* Proof upload — compact */}
           <div className="space-y-1">
             <Label className="text-xs">Proof of Payment</Label>
             <label className="flex items-center gap-2 cursor-pointer border border-dashed border-border rounded-lg px-3 py-2.5 text-xs hover:border-primary/50 transition">
@@ -181,8 +181,6 @@ const Deposit = () => {
                 onChange={(e) => onFile(e.target.files?.[0] ?? null)}
               />
             </label>
-
-            {/* Preview only shown if image, kept small */}
             {proofPreview && (
               <img
                 src={proofPreview}
