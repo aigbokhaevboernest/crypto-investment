@@ -21,16 +21,13 @@ export const LiveEarningsPopup = () => {
   useEffect(() => {
     const tick = () => {
       const action = rand(ACTIONS);
-      const name = rand(NAMES);
-      const country = rand(COUNTRIES);
-      const amount = (Math.floor(Math.random() * 90) + 5) * 1000;
       setItem({
         id: Date.now(),
-        name,
-        country,
+        name: rand(NAMES),
+        country: rand(COUNTRIES),
         verb: action.verb,
         isJoin: action.isJoin,
-        amount,
+        amount: (Math.floor(Math.random() * 90) + 5) * 1000,
         Icon: action.icon,
       });
       setTimeout(() => setItem(null), 5000);
@@ -43,31 +40,42 @@ export const LiveEarningsPopup = () => {
   if (!item) return null;
   const Icon = item.Icon;
   return (
-    <div key={item.id} className="fixed bottom-6 left-6 z-50 animate-float-up">
-      {/* Brand-locked colors per spec: turquoise bg, white text, yellow amount */}
+    <>
+      <style>{`
+        @keyframes earnings-slide-up {
+          0% { transform: translateY(100%); opacity: 0; }
+          100% { transform: translateY(0); opacity: 1; }
+        }
+      `}</style>
       <div
-        className="flex items-center gap-3 rounded-xl shadow-elegant p-3 pr-5 max-w-[340px]"
-        style={{ backgroundColor: "#1BD7C5", color: "#FFFFFF" }}
+        key={item.id}
+        className="fixed bottom-6 left-6 z-50"
+        style={{ animation: "earnings-slide-up 400ms ease-out both" }}
       >
         <div
-          className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0"
-          style={{ backgroundColor: "rgba(255,255,255,0.18)", color: "#FFFFFF" }}
+          className="flex items-center gap-3 rounded-xl shadow-elegant p-3 pr-5 max-w-[340px]"
+          style={{ backgroundColor: "#1BD7C5", color: "#FFFFFF" }}
         >
-          <Icon className="h-4 w-4" />
+          <div
+            className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0"
+            style={{ backgroundColor: "rgba(255,255,255,0.18)", color: "#FFFFFF" }}
+          >
+            <Icon className="h-4 w-4" />
+          </div>
+          <p className="text-sm font-medium leading-tight">
+            {item.isJoin ? (
+              <>New investor {item.verb} <span className="font-bold">{item.country}</span></>
+            ) : (
+              <>
+                {item.name} from {item.country} {item.verb}{" "}
+                <span className="font-bold" style={{ color: "#FFF508" }}>
+                  ${item.amount?.toLocaleString()}
+                </span>
+              </>
+            )}
+          </p>
         </div>
-        <p className="text-sm font-medium leading-tight">
-          {item.isJoin ? (
-            <>New investor {item.verb} <span className="font-bold">{item.country}</span></>
-          ) : (
-            <>
-              {item.name} from {item.country} {item.verb}{" "}
-              <span className="font-bold" style={{ color: "#FFF508" }}>
-                ${item.amount?.toLocaleString()}
-              </span>
-            </>
-          )}
-        </p>
       </div>
-    </div>
+    </>
   );
 };
