@@ -34,7 +34,7 @@ const Deposit = () => {
     supabase
       .from("profiles")
       .select("currency")
-      .eq("id", user.id)
+      .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data }) => data?.currency && setCurrency(data.currency));
   }, [user]);

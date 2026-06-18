@@ -15,7 +15,7 @@ const Transactions = () => {
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("profiles").select("currency").eq("id", user.id).maybeSingle()
+    supabase.from("profiles").select("currency").eq("user_id", user.id).maybeSingle()
       .then(({ data }) => data?.currency && setCurrency(data.currency));
 
     supabase

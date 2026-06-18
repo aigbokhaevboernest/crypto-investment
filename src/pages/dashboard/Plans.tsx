@@ -15,7 +15,7 @@ const Plans = () => {
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("profiles").select("account_level, total_balance").eq("id", user.id).maybeSingle()
+    supabase.from("profiles").select("account_level, total_balance").eq("user_id", user.id).maybeSingle()
       .then(({ data }) => {
         if (data) { setLevel(data.account_level || "basic"); setBalance(Number(data.total_balance) || 0); }
       });
