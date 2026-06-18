@@ -27,9 +27,21 @@ const Login = () => {
       if (!data) { setLoading(false); toast.error("User not found"); return; }
       email = data as string;
     }
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data: signed, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) { setLoading(false); toast.error(error.message); return; }
+
+    if (signed.user?.id) {
+      const { data: prof } = await supabase
+        .from("profiles").select("status").eq("user_id", signed.user.id).maybeSingle();
+      if (prof?.status === "blocked") {
+        await supabase.auth.signOut();
+        setLoading(false);
+        toast.error("Account blocked. Contact support");
+        return;
+      }
+    }
+
     setLoading(false);
-    if (error) { toast.error(error.message); return; }
     toast.success("Welcome back!");
     navigate("/dashboard");
   };
@@ -41,25 +53,25 @@ const Login = () => {
     >
       <div className="w-full max-w-md">
         <Link to="/" className="flex flex-col items-center gap-2 mb-6">
-          <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center font-black text-primary-foreground text-xl">C</div>
+          <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center font-black text-black text-xl">C</div>
           <span className="font-bold text-lg text-white">CryptoVault</span>
         </Link>
 
         <div className="rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden">
-          {/* Brand-color header card */}
-          <div className="bg-primary text-primary-foreground px-6 py-8 text-center">
+          <div className="bg-primary text-black px-6 py-8 text-center">
             <h1 className="text-2xl font-black">Welcome back</h1>
-            <p className="text-sm opacity-90 mt-1">Sign in with your email or username.</p>
+            <p className="text-sm opacity-90 mt-1">Sign in with your username.</p>
           </div>
 
           <form onSubmit={submit} className="p-6 md:p-8 space-y-5">
             <div className="space-y-1.5">
-              <Label className="text-slate-700">Email or Username</Label>
+              <Label className="text-slate-700">Username</Label>
               <Input
                 value={identifier}
                 onChange={e => setIdentifier(e.target.value)}
                 required
                 className="bg-white border-slate-300 text-slate-900"
+                placeholder="yourusername"
               />
             </div>
             <div className="space-y-1.5">

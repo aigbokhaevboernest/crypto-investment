@@ -6,7 +6,7 @@ import { useIdleLogout } from "@/hooks/use-idle-logout";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Users, ArrowDownToLine, History, ArrowUpFromLine, ShieldCheck,
-  Layers, Settings, LogOut, Menu, X, Wallet,
+  Layers, Settings, LogOut, Menu, X, Wallet, UserCircle2,
 } from "lucide-react";
 
 const NAV = [
@@ -36,19 +36,23 @@ export const DashboardLayout = ({ children }: { children?: ReactNode }) => {
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("profiles").select("full_name, account_level").eq("id", user.id).maybeSingle()
-      .then(({ data }) => data && setProfile(data));
+    supabase.from("profiles").select("full_name, account_level").eq("user_id", user.id).maybeSingle()
+      .then(({ data }) => data && setProfile({ full_name: data.full_name || "", account_level: data.account_level || "basic" }));
   }, [user]);
+
+  // Close mobile drawer on route change
+  useEffect(() => { setOpen(false); }, [location.pathname]);
 
   if (loading || !user) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
 
-  const initials = (profile?.full_name || user.email || "U").trim().split(" ").map((s) => s[0]).slice(0, 2).join("").toUpperCase();
-
   const SidebarInner = (
-    <aside className="w-64 shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground flex flex-col min-h-screen h-full">
+    <aside
+      onClick={(e) => e.stopPropagation()}
+      className="w-64 shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground flex flex-col min-h-screen h-full"
+    >
       <div className="p-5 border-b border-sidebar-border">
         <Link to="/" className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center font-black text-primary-foreground">C</div>
+          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center font-black text-black">C</div>
           <span className="font-bold text-lg text-white">CryptoVault</span>
         </Link>
       </div>
@@ -62,7 +66,7 @@ export const DashboardLayout = ({ children }: { children?: ReactNode }) => {
               onClick={() => setOpen(false)}
               className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
                 active
-                  ? "bg-primary text-primary-foreground shadow-gold"
+                  ? "bg-primary text-black shadow-gold"
                   : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-white"
               }`}
             >
@@ -70,8 +74,6 @@ export const DashboardLayout = ({ children }: { children?: ReactNode }) => {
             </Link>
           );
         })}
-
-        {/* Logout sits directly below Settings with a small visual gap */}
         <div className="pt-3">
           <button
             onClick={async () => { await signOut(); navigate("/"); }}
@@ -80,7 +82,6 @@ export const DashboardLayout = ({ children }: { children?: ReactNode }) => {
             <LogOut className="h-4 w-4" /> Logout
           </button>
         </div>
-
       </nav>
     </aside>
   );
@@ -89,17 +90,17 @@ export const DashboardLayout = ({ children }: { children?: ReactNode }) => {
     <div className="min-h-screen flex bg-background">
       <div className="hidden lg:flex">{SidebarInner}</div>
 
-      {/* Mobile drawer with smooth slide transform */}
+      {/* Mobile drawer */}
       <div
-        className={`fixed inset-0 z-50 lg:hidden pointer-events-none ${open ? "pointer-events-auto" : ""}`}
+        className={`fixed inset-0 z-50 lg:hidden ${open ? "" : "pointer-events-none"}`}
         aria-hidden={!open}
+        onClick={() => setOpen(false)}
       >
         <div
-          className={`fixed inset-0 bg-black/60 transition-opacity duration-250 ease-in-out ${open ? "opacity-100" : "opacity-0"}`}
-          onClick={() => setOpen(false)}
+          className={`absolute inset-0 bg-black/60 transition-opacity duration-200 ${open ? "opacity-100" : "opacity-0"}`}
         />
         <div
-          className={`relative h-full transition-transform duration-[250ms] ease-in-out ${open ? "translate-x-0" : "-translate-x-full"}`}
+          className={`relative h-full transition-transform duration-200 ease-in-out ${open ? "translate-x-0" : "-translate-x-full"}`}
         >
           {SidebarInner}
         </div>
@@ -116,14 +117,18 @@ export const DashboardLayout = ({ children }: { children?: ReactNode }) => {
             </Button>
           </div>
           <div className="flex items-center gap-3">
-            <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-white/10 border border-white/20 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white">
+            <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-white/10 border border-white/20 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-white/85">
               {profile?.account_level || "basic"} account
             </span>
             <Button size="sm" onClick={() => navigate("/dashboard/connect-wallet")}>
               <Wallet className="h-4 w-4" /> Connect Wallet
             </Button>
-            <div className="h-9 w-9 rounded-full bg-primary text-primary-foreground font-black flex items-center justify-center text-sm">
-              {initials}
+            <div
+              className="h-9 w-9 rounded-full border border-white/30 flex items-center justify-center"
+              style={{ backgroundColor: "transparent" }}
+              aria-label="Account"
+            >
+              <UserCircle2 className="h-7 w-7" style={{ color: "#999999" }} />
             </div>
           </div>
         </header>

