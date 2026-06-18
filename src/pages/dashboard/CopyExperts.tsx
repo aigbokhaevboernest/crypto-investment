@@ -26,14 +26,11 @@ type Expert = {
 
 const PLAN_OPTIONS = [
   { amount: 1500,  label: "Regular Plan" },
-  { amount: 3800,  label: "Silver Plan" },
-  { amount: 5000,  label: "Refined" },
+  { amount: 5000,  label: "Silver Plan" },
   { amount: 9500,  label: "Advanced" },
   { amount: 12600, label: "Premium" },
-  { amount: 15900, label: "Superior" },
   { amount: 21300, label: "Elite" },
   { amount: 26800, label: "Ultra" },
-  { amount: 31500, label: "Deluxe" },
   { amount: 38950, label: "VIP" },
   { amount: 47200, label: "Ultimate" },
 ];
