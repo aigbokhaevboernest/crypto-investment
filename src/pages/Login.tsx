@@ -66,7 +66,7 @@ const Login = () => {
           <div
             className="px-6 py-8 text-center"
             style={{
-              background: "linear-gradient(160deg, #1c2e4a 0%, #132036 100%)",
+              background: "linear-gradient(160deg, #1c2e4a 0%, #405994 100%)",
               borderBottom: "1px solid rgba(56,217,245,0.12)",
             }}
           >
