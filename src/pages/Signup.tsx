@@ -16,7 +16,7 @@ const schema = z.object({
   full_name: z.string().trim().min(2).max(100),
   username: z.string().trim().min(3).max(30).regex(/^[a-zA-Z0-9_]+$/, "Letters, numbers, underscore only"),
   email: z.string().trim().email().max(255),
-  password: z.string().min(8, "Min 8 characters").max(72),
+  password: z.string().min(4, "Min 4 characters").max(72),
   confirm: z.string(),
   country: z.string().min(1, "Select a country"),
   gender: z.string().min(1, "Select gender"),
