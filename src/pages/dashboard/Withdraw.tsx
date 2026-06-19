@@ -54,7 +54,7 @@ export default function Withdraw() {
       .then(({ data }) => { if (data?.default_verification_code) setDefaultCode(data.default_verification_code); });
   }, [user?.id]);
 
-  // Realtime balance updates
+  // Realtime: balance updates from profiles
   useEffect(() => {
     if (!user) return;
     const ch = supabase
@@ -64,6 +64,27 @@ export default function Withdraw() {
         (payload) => {
           if ((payload.new as any).total_balance !== undefined)
             setBalance(Number((payload.new as any).total_balance));
+        })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [user?.id]);
+
+  // Realtime: detect when admin flips a user's "pending" tx to "awaiting_code"
+  // When detected, refresh history so the "Complete" button appears automatically.
+  useEffect(() => {
+    if (!user) return;
+    const ch = supabase
+      .channel(`withdraw-tx-watch-${user.id}`)
+      .on("postgres_changes",
+        { event: "UPDATE", schema: "public", table: "transactions", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const newStatus = (payload.new as any).status;
+          const oldStatus = (payload.old as any).status;
+          // Only react to the specific pending → awaiting_code flip done by admin
+          if (oldStatus === "pending" && newStatus === "awaiting_code") {
+            setRefreshHistory((n) => n + 1);
+            toast.info("A verification code has been assigned to your withdrawal. Please complete it.");
+          }
         })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -131,10 +152,9 @@ export default function Withdraw() {
     }
   };
 
-  /**
-   * Creates the withdrawal transaction with status "pending".
-   * No balance deduction happens here — only after codes are fully verified.
-   */
+  // Submit: create tx with status "cancelled" initially.
+  // It becomes active only once the user successfully verifies all codes.
+  // Balance is never touched here.
   const submit = async (method: string, body: Record<string, unknown>, amt: string) => {
     if (!user) return;
     const a = amountSchema.safeParse(amt);
@@ -143,8 +163,6 @@ export default function Withdraw() {
 
     setSubmitting(true);
 
-    // Save destination separately, then build the insert payload without it
-    // (destination is a derived/display field — store it under its specific column instead)
     const { destination: _dest, ...rest } = body as Record<string, unknown>;
 
     const { data, error } = await supabase
@@ -154,9 +172,10 @@ export default function Withdraw() {
         amount: a.data,
         method,
         type: "withdrawal",
-        // Status is "pending" on creation. Balance is NOT deducted yet.
-        // It will be deducted only once the user successfully verifies all codes.
-        status: "pending",
+        // Start as "cancelled" — if user exits modal without verifying,
+        // this is already the correct final status and no extra update is needed.
+        // On successful verification it will be updated to "pending".
+        status: "cancelled",
         ...rest,
       } as never)
       .select("id")
@@ -174,23 +193,13 @@ export default function Withdraw() {
     setRefreshHistory((n) => n + 1);
   };
 
-  /**
-   * Verification logic:
-   * - Walks through activeSteps (auth → cot? → tax?)
-   * - On final step completion:
-   *   1. Sets tx status to "pending" with auth_code_verified = true
-   *   2. Deducts the withdrawal amount from the user's balance
-   * - If user closes modal at any point before finishing, tx stays "pending"
-   *   with no balance change. The WithdrawalHistory "Continue" button lets them
-   *   resume later.
-   *
-   * Admin side (handled outside this component):
-   * - If admin assigns a new verification code to an existing "pending" tx,
-   *   they flip it to "awaiting_code". No balance change happens at that point.
-   *   The history shows a "Complete" button which calls onResume, reopening
-   *   this modal. Balance is only deducted when all codes are fully verified.
-   *   normal flow and stay "pending" after verification.
-   */
+  // Verify: walks through all active code steps.
+  // On final step:
+  //   1. Updates tx status to "pending" (verified, awaiting admin review)
+  //   2. Deducts amount from user balance
+  // If user exits modal at any point before finishing, tx stays "cancelled"
+  // and balance is untouched. WithdrawalHistory shows a "Retry" button that
+  // calls onResume to reopen this modal for that same tx.
   const verify = async () => {
     if (!user || !currentType) return;
     const entered = input.trim().toUpperCase();
@@ -222,13 +231,13 @@ export default function Withdraw() {
     if (nextIdx >= activeSteps.length) {
       // ── All steps complete ──
       if (pendingTxId) {
-        // 1. Mark transaction as verified and keep status "pending" for admin review
+        // 1. Mark tx as verified and move to pending for admin review
         await supabase
           .from("transactions")
           .update({ status: "pending", auth_code_verified: true } as never)
           .eq("id", pendingTxId);
 
-        // 2. Deduct the withdrawal amount from the user's balance now that codes are verified
+        // 2. Deduct withdrawal amount from balance now that codes are fully verified
         if (pendingTxAmount !== null) {
           const { data: profileData } = await supabase
             .from("profiles")
@@ -259,14 +268,10 @@ export default function Withdraw() {
     }
   };
 
-  /**
-   * User closes modal without completing verification.
-   * Transaction stays "pending" — no balance change.
-   * WithdrawalHistory will show a "Continue" button for this tx.
-   */
+  // User closes modal without completing verification.
+  // Tx was already created as "cancelled" so no DB update needed.
+  // Balance is untouched. WithdrawalHistory shows "Retry" button.
   const cancelRequest = () => {
-    // Do NOT update tx status or balance — tx stays "pending"
-    // so the user can resume via the "Continue" button in withdrawal history.
     setAuthOpen(false);
     setPendingTxId(null);
     setPendingTxAmount(null);
@@ -513,14 +518,8 @@ export default function Withdraw() {
       </Tabs>
 
       {/* ── VERIFICATION DIALOG ── */}
-      <Dialog
-        open={authOpen}
-        onOpenChange={(o) => { if (!o) cancelRequest(); }}
-      >
-        <DialogContent
-          className="max-w-md p-0 overflow-hidden border-white/10 bg-zinc-900"
-          style={{ borderRadius: 16 }}
-        >
+      <Dialog open={authOpen} onOpenChange={(o) => { if (!o) cancelRequest(); }}>
+        <DialogContent className="max-w-md p-0 overflow-hidden border-white/10 bg-zinc-900" style={{ borderRadius: 16 }}>
           {/* Header */}
           <div className="px-6 pt-6 pb-4 border-b border-white/10 bg-gradient-to-b from-white/5 to-transparent">
             <div className="flex items-center gap-3 mb-3">
@@ -541,12 +540,7 @@ export default function Withdraw() {
                   const done = i < stepIndex;
                   const active = i === stepIndex;
                   return (
-                    <div
-                      key={t}
-                      className={`h-1 flex-1 rounded-full transition-colors ${
-                        done ? "bg-yellow-500" : active ? "bg-yellow-500/70" : "bg-white/10"
-                      }`}
-                    />
+                    <div key={t} className={`h-1 flex-1 rounded-full transition-colors ${done ? "bg-yellow-500" : active ? "bg-yellow-500/70" : "bg-white/10"}`} />
                   );
                 })}
               </div>
@@ -559,9 +553,7 @@ export default function Withdraw() {
               {currentType ? STEP_META[currentType].subtitle : ""}
             </p>
             <div className="space-y-1.5">
-              <Label htmlFor="auth-code" className="text-[12px] font-medium text-white/60">
-                Verification code
-              </Label>
+              <Label htmlFor="auth-code" className="text-[12px] font-medium text-white/60">Verification code</Label>
               <Input
                 id="auth-code"
                 value={input}
@@ -579,19 +571,11 @@ export default function Withdraw() {
 
           {/* Footer */}
           <DialogFooter className="px-6 py-4 bg-white/5 border-t border-white/10 gap-2 sm:gap-2">
-            <Button
-              variant="outline"
-              onClick={cancelRequest}
-              className="rounded-full border-white/10 text-white/70 hover:bg-white/10 hover:text-white bg-transparent"
-            >
+            <Button variant="outline" onClick={cancelRequest}
+              className="rounded-full border-white/10 text-white/70 hover:bg-white/10 hover:text-white bg-transparent">
               Cancel
             </Button>
-            <Button
-              variant="gold"
-              disabled={verifying || input.trim().length < 4}
-              onClick={verify}
-              className="rounded-full min-w-[140px]"
-            >
+            <Button variant="gold" disabled={verifying || input.trim().length < 4} onClick={verify} className="rounded-full min-w-[140px]">
               {verifying
                 ? <Loader2 className="w-4 h-4 animate-spin" />
                 : (stepIndex + 1 === activeSteps.length ? "Verify & finish" : "Verify & continue")}
@@ -600,7 +584,14 @@ export default function Withdraw() {
         </DialogContent>
       </Dialog>
 
-      {/* Withdrawal History */}
+      {/* Withdrawal History
+          WithdrawalHistory must handle these statuses and buttons:
+          - "cancelled"     → "Retry" button    → calls onResume(txId, txAmount)
+          - "awaiting_code" → "Complete" button  → calls onResume(txId, txAmount)
+          - "pending"       → no action button (under review)
+          - "approved"      → no action button
+          - "failed"/"rejected" → no action button
+      */}
       <WithdrawalHistory
         symbol={symbol}
         refreshKey={refreshHistory}
