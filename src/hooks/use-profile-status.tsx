@@ -4,23 +4,25 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type AccountStatus = "active" | "suspended" | "blocked" | string;
 
-/**
- * Reads `profiles.status` for the current user and keeps it in sync.
- * If the status flips to "blocked" the user is signed out immediately.
- */
+// Module-level cache keyed by user id so revisits resolve instantly with no flicker.
+const statusCache = new Map<string, AccountStatus>();
+
 export function useProfileStatus() {
   const { user, signOut } = useAuth();
-  const [status, setStatus] = useState<AccountStatus | null>(null);
-  const [loading, setLoading] = useState(true);
+  const cached = user ? statusCache.get(user.id) ?? null : null;
+  const [status, setStatus] = useState<AccountStatus | null>(cached);
+  const [loading, setLoading] = useState(!cached);
 
   useEffect(() => {
     let cancelled = false;
     if (!user) { setStatus(null); setLoading(false); return; }
-    setLoading(true);
+    const c = statusCache.get(user.id);
+    if (c) { setStatus(c); setLoading(false); }
 
     const check = (s: string | null | undefined) => {
       if (cancelled) return;
       const v = (s || "active") as AccountStatus;
+      statusCache.set(user.id, v);
       setStatus(v);
       setLoading(false);
       if (v === "blocked") {

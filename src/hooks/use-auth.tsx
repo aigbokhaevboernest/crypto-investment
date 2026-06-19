@@ -14,7 +14,6 @@ async function enforceBlockedStatus(userId: string | undefined): Promise<boolean
   const { data } = await supabase.from("profiles").select("status").eq("user_id", userId).maybeSingle();
   if (data?.status === "blocked") {
     await supabase.auth.signOut();
-    if (typeof window !== "undefined") window.location.replace("/login");
     return true;
   }
   return false;
@@ -30,7 +29,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user?.id) {
-        // Defer to avoid deadlocking the auth callback
         setTimeout(() => { void enforceBlockedStatus(s.user.id); }, 0);
       }
     });
