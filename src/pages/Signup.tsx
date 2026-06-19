@@ -69,7 +69,7 @@ const Signup = () => {
   return (
     <div
       className="min-h-screen flex items-center justify-center px-4 py-12"
-      style={{ backgroundColor: "#0f1829" }}
+      style={{ backgroundColor: "#172640" }}
     >
       <div className="w-full max-w-2xl">
         {/* Logo — untouched */}
@@ -218,7 +218,7 @@ const Signup = () => {
               className="sm:col-span-2 w-full h-12 rounded-xl text-[15px] font-semibold border-0"
               style={{
                 background: "linear-gradient(135deg, #38d9f5 0%, #1ab8d8 100%)",
-                color: "#0f1829",
+                color: "#172640",
                 boxShadow: "0 4px 16px rgba(56,217,245,0.32)",
               }}
             >
