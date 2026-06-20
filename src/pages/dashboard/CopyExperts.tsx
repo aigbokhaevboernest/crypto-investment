@@ -107,7 +107,24 @@ const CopyExperts = () => {
     const selected = PLAN_OPTIONS.find((p) => p.amount === amt);
     const planLabel = selected?.label ?? "";
 
-    // Send notification emails (fire and forget) — DO NOT persist any subscription or expert assignment.
+    // Persist the request so it shows up on the admin "Copy-Expert Requests" panel.
+    // trader_id is stored as text, so this works for both DB experts and hardcoded ones.
+    const { error: insertError } = await supabase.from("copy_subscriptions").insert({
+      user_id: user.id,
+      trader_id: modalExpert.id,
+      status: "pending",
+      plan_amount: amt,
+      plan_name: planLabel,
+      recurring_monthly: recurring ? "true" : "false",
+    });
+
+    if (insertError) {
+      setSubmitting(false);
+      toast.error(insertError.message);
+      return;
+    }
+
+    // Send notification emails (fire and forget).
     const userEmail = user.email ?? "";
     const userHtml = `
       <p>Hi,</p>
