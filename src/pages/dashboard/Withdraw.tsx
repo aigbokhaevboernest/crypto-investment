@@ -70,7 +70,9 @@ export default function Withdraw() {
   }, [user?.id]);
 
   // Realtime: detect when admin flips a user's "pending" tx to "awaiting_code"
-  // When detected, refresh history so the "Complete" button appears automatically.
+  // When detected, refresh history so the "Continue" button appears automatically.
+  // NOTE: this transition must NEVER touch balance. Balance changes only happen
+  // inside verify() below, guarded by the tx's own auth_code_verified flag.
   useEffect(() => {
     if (!user) return;
     const ch = supabase
@@ -176,6 +178,7 @@ export default function Withdraw() {
         // this is already the correct final status and no extra update is needed.
         // On successful verification it will be updated to "pending".
         status: "cancelled",
+        auth_code_verified: false,
         ...rest,
       } as never)
       .select("id")
@@ -195,13 +198,16 @@ export default function Withdraw() {
 
   // Verify: walks through all active code steps.
   // On final step:
-  //   1. Updates tx status to "pending" (verified, awaiting admin review)
-  //   2. Deducts amount from user balance
-  // If user exits modal at any point before finishing, tx stays "cancelled"
-  // and balance is untouched. WithdrawalHistory shows a "Retry" button that
-  // calls onResume to reopen this modal for that same tx.
+  //   1. Re-reads the tx's own row (status + auth_code_verified) from the DB —
+  //      never trusts React state for this, since resume/reload can leave it stale.
+  //   2. Updates tx status to "pending".
+  //   3. Deducts the amount from balance ONLY if auth_code_verified was not
+  //      already true going into this step. This guarantees the deduction
+  //      happens exactly once per transaction, the first time it clears
+  //      verification — never again on subsequent awaiting_code -> pending
+  //      cycles (e.g. a later COT/tax code stage added by admin).
   const verify = async () => {
-    if (!user || !currentType) return;
+    if (!user || !currentType || !pendingTxId) return;
     const entered = input.trim().toUpperCase();
     if (entered.length < 4) { toast.error("Enter the code"); return; }
 
@@ -229,29 +235,40 @@ export default function Withdraw() {
     setInput("");
 
     if (nextIdx >= activeSteps.length) {
-      // ── All steps complete ──
-      if (pendingTxId) {
-        // 1. Mark tx as verified and move to pending for admin review
-        await supabase
-          .from("transactions")
-          .update({ status: "pending", auth_code_verified: true } as never)
-          .eq("id", pendingTxId);
+      // ── All steps for this round complete ──
+      // Re-read the transaction itself to decide whether a deduction is due.
+      // This is the single source of truth — not pendingTxAmount/React state —
+      // so it works correctly whether this is a fresh submit() or a resumed
+      // "awaiting_code" tx reopened via onResume().
+      const { data: txRow } = await supabase
+        .from("transactions")
+        .select("amount, auth_code_verified")
+        .eq("id", pendingTxId)
+        .maybeSingle();
 
-        // 2. Deduct withdrawal amount from balance now that codes are fully verified
-        if (pendingTxAmount !== null) {
-          const { data: profileData } = await supabase
+      const alreadyDeducted = !!(txRow as any)?.auth_code_verified;
+      const amountToDeduct = Number((txRow as any)?.amount ?? pendingTxAmount ?? 0);
+
+      // 1. Mark tx verified and move to pending for admin review.
+      await supabase
+        .from("transactions")
+        .update({ status: "pending", auth_code_verified: true } as never)
+        .eq("id", pendingTxId);
+
+      // 2. Deduct ONLY the first time this transaction clears verification.
+      if (!alreadyDeducted && amountToDeduct > 0) {
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("total_balance")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (profileData) {
+          const newBalance = Math.max(0, Number(profileData.total_balance) - amountToDeduct);
+          await supabase
             .from("profiles")
-            .select("total_balance")
-            .eq("user_id", user.id)
-            .maybeSingle();
-
-          if (profileData) {
-            const newBalance = Math.max(0, Number(profileData.total_balance) - pendingTxAmount);
-            await supabase
-              .from("profiles")
-              .update({ total_balance: newBalance } as never)
-              .eq("user_id", user.id);
-          }
+            .update({ total_balance: newBalance } as never)
+            .eq("user_id", user.id);
         }
       }
 
@@ -270,7 +287,8 @@ export default function Withdraw() {
 
   // User closes modal without completing verification.
   // Tx was already created as "cancelled" so no DB update needed.
-  // Balance is untouched. WithdrawalHistory shows "Retry" button.
+  // Balance is untouched. WithdrawalHistory shows a "Continue" button
+  // which calls onResume to reopen this modal for that same tx.
   const cancelRequest = () => {
     setAuthOpen(false);
     setPendingTxId(null);
@@ -586,11 +604,16 @@ export default function Withdraw() {
 
       {/* Withdrawal History
           WithdrawalHistory must handle these statuses and buttons:
-          - "cancelled"     → "Retry" button    → calls onResume(txId, txAmount)
-          - "awaiting_code" → "Complete" button  → calls onResume(txId, txAmount)
+          - "cancelled"     → "Continue" button → calls onResume(txId, txAmount)
+          - "awaiting_code" → "Continue" button → calls onResume(txId, txAmount)
           - "pending"       → no action button (under review)
           - "approved"      → no action button
           - "failed"/"rejected" → no action button
+
+          Balance deduction happens ONLY inside verify() above, guarded by the
+          transaction's own auth_code_verified column — never on the
+          pending -> awaiting_code transition (that must stay balance-neutral,
+          and is handled wherever the admin assigns the next code).
       */}
       <WithdrawalHistory
         symbol={symbol}
