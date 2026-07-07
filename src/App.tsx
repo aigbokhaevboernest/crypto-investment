@@ -117,57 +117,6 @@ const RouteChangeLoader = () => {
   return <PageLoader hide={hide} />;
 };
 
-// Quick dark flash on dashboard route changes only. This is intentionally
-// separate from RouteChangeLoader (which skips /dashboard) — it's a fast
-// opacity pulse, not a loading spinner, so switching between dashboard
-// pages feels responsive instead of like a sudden jump-cut.
-const DashboardFlash = () => {
-  const location = useLocation();
-  const prevPath = useRef(location.pathname);
-  const isFirstRender = useRef(true);
-  const [flashing, setFlashing] = useState(false);
-
-  useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      prevPath.current = location.pathname;
-      return;
-    }
-
-    const cameFrom = prevPath.current;
-    const goingTo = location.pathname;
-
-    const bothDashboard =
-      cameFrom.startsWith("/dashboard") && goingTo.startsWith("/dashboard");
-
-    if (bothDashboard && cameFrom !== goingTo) {
-      setFlashing(true);
-      const t = setTimeout(() => setFlashing(false), 120);
-      prevPath.current = goingTo;
-      return () => clearTimeout(t);
-    }
-
-    prevPath.current = goingTo;
-  }, [location.pathname]);
-
-  return (
-    <div
-      aria-hidden
-      style={{
-        position: "fixed",
-        inset: 0,
-        backgroundColor: "black",
-        opacity: flashing ? 0.35 : 0,
-        pointerEvents: "none",
-        zIndex: 9999,
-        transition: flashing
-          ? "opacity 60ms ease-out"
-          : "opacity 180ms ease-in",
-      }}
-    />
-  );
-};
-
 const App = () => (
   <QueryClientProvider client={queryClient}>
    <ThemeProvider>
@@ -178,7 +127,6 @@ const App = () => (
       <BrowserRouter>
         <ScrollToTop />
         <RouteChangeLoader />
-        <DashboardFlash />
         <AuthProvider>
         <Routes>
           <Route path="/" element={<Index />} />
