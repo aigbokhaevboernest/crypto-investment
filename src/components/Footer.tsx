@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import BrandLogo from "@/components/BrandLogo";
 
 const SECTIONS = [
   {
@@ -32,10 +33,9 @@ export const Footer = () => (
   <footer className="border-t border-border/40 bg-card/30 py-12 mt-12">
     <div className="container grid md:grid-cols-4 gap-8 text-sm">
       <div>
-        <div className="flex items-center gap-2 mb-3">
-          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center font-black text-primary-foreground">C</div>
-          <span className="font-bold text-lg">CryptoVault</span>
-        </div>
+        <div className="mb-3">
+  <BrandLogo className="h-10 w-auto" />
+</div>
         <p className="text-muted-foreground">Smart crypto mining, AI trading & copy trading platform.</p>
       </div>
       {SECTIONS.map((s) => (
