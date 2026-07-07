@@ -31,7 +31,6 @@ import { FAQ, Terms, Policies } from "./pages/marketing/SimplePages";
 import { ThemeProvider } from "./hooks/use-theme";
 import { AuthProvider } from "./hooks/use-auth";
 import SiteIntro from "@/components/SiteIntro";
-import AuthNavLoader from "@/components/AuthNavLoader";
 
 const queryClient = new QueryClient();
 
