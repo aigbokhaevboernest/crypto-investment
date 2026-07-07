@@ -1,3 +1,4 @@
+import BrandLogo from "@/components/BrandLogo";
 import { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
