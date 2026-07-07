@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -30,6 +30,7 @@ import RiskDisclosure from "./pages/marketing/RiskDisclosure";
 import { FAQ, Terms, Policies } from "./pages/marketing/SimplePages";
 import { ThemeProvider } from "./hooks/use-theme";
 import { AuthProvider } from "./hooks/use-auth";
+import { PageLoader } from "./components/PageLoader";
 
 const queryClient = new QueryClient();
 
@@ -49,14 +50,70 @@ const ScrollToTop = () => {
   return null;
 };
 
+// Shows the loader once when the app first opens, then fades it out.
+const InitialLoader = () => {
+  const [visible, setVisible] = useState(true);
+  const [hide, setHide] = useState(false);
+
+  useEffect(() => {
+    const hideTimer = setTimeout(() => setHide(true), 700);
+    const removeTimer = setTimeout(() => setVisible(false), 1050);
+    return () => {
+      clearTimeout(hideTimer);
+      clearTimeout(removeTimer);
+    };
+  }, []);
+
+  if (!visible) return null;
+  return <PageLoader hide={hide} />;
+};
+
+// Shows the loader briefly when navigating between /login and /signup.
+const AUTH_ROUTES = ["/login", "/signup"];
+
+const AuthTransitionLoader = () => {
+  const location = useLocation();
+  const prevPath = useRef(location.pathname);
+  const [visible, setVisible] = useState(false);
+  const [hide, setHide] = useState(false);
+
+  useEffect(() => {
+    const cameFrom = prevPath.current;
+    const goingTo = location.pathname;
+
+    if (
+      cameFrom !== goingTo &&
+      AUTH_ROUTES.includes(cameFrom) &&
+      AUTH_ROUTES.includes(goingTo)
+    ) {
+      setVisible(true);
+      setHide(false);
+      const hideTimer = setTimeout(() => setHide(true), 350);
+      const removeTimer = setTimeout(() => setVisible(false), 700);
+      prevPath.current = goingTo;
+      return () => {
+        clearTimeout(hideTimer);
+        clearTimeout(removeTimer);
+      };
+    }
+
+    prevPath.current = goingTo;
+  }, [location.pathname]);
+
+  if (!visible) return null;
+  return <PageLoader hide={hide} />;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
    <ThemeProvider>
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <InitialLoader />
       <BrowserRouter>
         <ScrollToTop />
+        <AuthTransitionLoader />
         <AuthProvider>
         <Routes>
           <Route path="/" element={<Index />} />
