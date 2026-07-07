@@ -31,6 +31,7 @@ import { FAQ, Terms, Policies } from "./pages/marketing/SimplePages";
 import { ThemeProvider } from "./hooks/use-theme";
 import { AuthProvider } from "./hooks/use-auth";
 import { PageLoader } from "./components/PageLoader";
+import { DashboardFlash } from "./components/DashboardFlash";
 
 const queryClient = new QueryClient();
 
@@ -127,6 +128,7 @@ const App = () => (
       <BrowserRouter>
         <ScrollToTop />
         <RouteChangeLoader />
+        <DashboardFlash />
         <AuthProvider>
         <Routes>
           <Route path="/" element={<Index />} />
