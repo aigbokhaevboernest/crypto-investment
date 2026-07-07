@@ -51,10 +51,9 @@ export const DashboardLayout = ({ children }: { children?: ReactNode }) => {
       className="w-64 shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground flex flex-col min-h-screen h-full"
     >
       <div className="p-5 border-b border-sidebar-border">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center font-black text-black">C</div>
-          <span className="font-bold text-lg text-white">CryptoVault</span>
-        </Link>
+          <div className="mb-3">
+  <BrandLogo className="h-10 w-auto" />
+</div>
       </div>
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {NAV.map((n) => {
