@@ -13,9 +13,11 @@ export const Navbar = () => {
   const linkClass = "text-[#172640] hover:text-[#00B8E0] transition";
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-slate-200 bg-white"<Link to="/" className="flex items-center h-full">
-  <BrandLogo className="h-10 w-auto object-contain" />
-</Link>
+    <div className="container flex h-16 items-center justify-between">
+  <Link to="/" className="flex items-center self-center">
+    <BrandLogo className="h-10 w-auto object-contain shrink-0" />
+  </Link>
+
 
 
         <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
