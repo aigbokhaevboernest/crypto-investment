@@ -1,24 +1,26 @@
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 
 /**
- * Renders a brief full-screen dark flash whenever the route changes
- * between two /dashboard pages. This gives navigation a visible "beat"
- * instead of content just jump-cutting from one page to the next.
+ * A hard-cut dark flash between dashboard pages.
  *
- * Mount this once, near the top of the app, inside <BrowserRouter>.
+ * This is NOT a fade. The overlay snaps fully opaque and snaps fully
+ * transparent — no opacity transition, no easing. It uses
+ * useLayoutEffect (runs synchronously before the browser paints) so the
+ * black screen covers the moment the old page is swapped for the new
+ * one. The user sees: old page -> black -> new page. No visible jump.
+ *
+ * Mount once, near the top of the app, inside <BrowserRouter>.
  */
+const FLASH_DURATION_MS = 120;
+
 export const DashboardFlash = () => {
   const location = useLocation();
   const prevPath = useRef(location.pathname);
   const isFirstRender = useRef(true);
+  const [visible, setVisible] = useState(false);
 
-  // "idle" -> nothing on screen
-  // "in"   -> flash snaps to full opacity instantly
-  // "out"  -> flash fades back out
-  const [phase, setPhase] = useState<"idle" | "in" | "out">("idle");
-
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
       prevPath.current = location.pathname;
@@ -34,23 +36,16 @@ export const DashboardFlash = () => {
 
     if (!bothDashboard || cameFrom === goingTo) return;
 
-    // Snap to fully visible immediately (no fade in — that's what makes
-    // it read as a "flash" rather than a soft crossfade).
-    setPhase("in");
+    // Snap on immediately, synchronously, before paint.
+    setVisible(true);
 
-    // Then start the fade-out on the next frame.
-    const startFade = requestAnimationFrame(() => setPhase("out"));
-
-    // Fully clear the node after the fade-out transition finishes.
-    const clear = setTimeout(() => setPhase("idle"), 260);
-
-    return () => {
-      cancelAnimationFrame(startFade);
-      clearTimeout(clear);
-    };
+    // Snap off after a fixed short duration. No transition — this is a
+    // hard cut, not a fade.
+    const timer = setTimeout(() => setVisible(false), FLASH_DURATION_MS);
+    return () => clearTimeout(timer);
   }, [location.pathname]);
 
-  if (phase === "idle") return null;
+  if (!visible) return null;
 
   return (
     <div
@@ -61,8 +56,7 @@ export const DashboardFlash = () => {
         zIndex: 9999,
         pointerEvents: "none",
         backgroundColor: "#000000",
-        opacity: phase === "in" ? 0.55 : 0,
-        transition: phase === "out" ? "opacity 220ms ease-out" : "none",
+        opacity: 1,
       }}
     />
   );
