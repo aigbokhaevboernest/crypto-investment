@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useState } from "react";
+import BrandLogo from "@/components/BrandLogo";
 
 export const Navbar = () => {
   const { user } = useAuth();
@@ -14,10 +15,9 @@ export const Navbar = () => {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-200 bg-white">
       <div className="container flex h-16 items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center font-black text-white">C</div>
-          <span className="font-bold text-lg tracking-tight text-[#172640]">CryptoVault</span>
-        </Link>
+        <Link to="/" className="flex flex-col items-center gap-3 mb-6">
+  <BrandLogo className="h-14 w-auto object-contain" />
+</Link>
 
         <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
           <a href="#about" className={linkClass}>About</a>
