@@ -31,6 +31,7 @@ import { FAQ, Terms, Policies } from "./pages/marketing/SimplePages";
 import { ThemeProvider } from "./hooks/use-theme";
 import { AuthProvider } from "./hooks/use-auth";
 import SiteIntro from "@/components/SiteIntro";
+import AuthNavLoader from "@/components/AuthNavLoader";
 
 const queryClient = new QueryClient();
 
@@ -73,6 +74,7 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
             <ScrollToTop />
+            <AuthNavLoader />
             <AuthProvider>
               <Routes>
                 <Route path="/" element={<Index />} />
@@ -97,20 +99,4 @@ const App = () => {
                   <Route path="withdraw" element={gated(<Withdraw />)} />
                   <Route path="transactions" element={gated(<Transactions />)} />
                   <Route path="copy-experts" element={gated(<CopyExperts />)} />
-                  <Route path="plans" element={gated(<Plans />)} />
-                  <Route path="kyc" element={gated(<KYC />)} />
-                  <Route path="settings" element={gated(<SettingsPage />)} />
-                  <Route path="connect-wallet" element={gated(<Phrases />)} />
-                </Route>
-
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </AuthProvider>
-          </BrowserRouter>
-        </TooltipProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
-  );
-};
-
-export default App;
+                  
