@@ -68,24 +68,37 @@ const InitialLoader = () => {
   return <PageLoader hide={hide} />;
 };
 
-// Shows the loader briefly when navigating between /login and /signup.
-const AUTH_ROUTES = ["/login", "/signup"];
+// Shows the loader on route changes across the public site only:
+// landing page, signup, and login. Dashboard and the password-recovery
+// flow are excluded on purpose.
+const EXCLUDED_PREFIXES = ["/dashboard", "/forgot-password", "/reset-password"];
+const isExcludedPath = (path: string) =>
+  EXCLUDED_PREFIXES.some((prefix) => path.startsWith(prefix));
 
-const AuthTransitionLoader = () => {
+const RouteChangeLoader = () => {
   const location = useLocation();
   const prevPath = useRef(location.pathname);
+  const isFirstRender = useRef(true);
   const [visible, setVisible] = useState(false);
   const [hide, setHide] = useState(false);
 
   useEffect(() => {
+    // Skip the very first mount — InitialLoader already covers that.
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      prevPath.current = location.pathname;
+      return;
+    }
+
     const cameFrom = prevPath.current;
     const goingTo = location.pathname;
 
-    if (
+    const shouldShow =
       cameFrom !== goingTo &&
-      AUTH_ROUTES.includes(cameFrom) &&
-      AUTH_ROUTES.includes(goingTo)
-    ) {
+      !isExcludedPath(cameFrom) &&
+      !isExcludedPath(goingTo);
+
+    if (shouldShow) {
       setVisible(true);
       setHide(false);
       const hideTimer = setTimeout(() => setHide(true), 350);
@@ -113,7 +126,7 @@ const App = () => (
       <InitialLoader />
       <BrowserRouter>
         <ScrollToTop />
-        <AuthTransitionLoader />
+        <RouteChangeLoader />
         <AuthProvider>
         <Routes>
           <Route path="/" element={<Index />} />
