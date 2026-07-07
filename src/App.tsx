@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -30,7 +30,6 @@ import RiskDisclosure from "./pages/marketing/RiskDisclosure";
 import { FAQ, Terms, Policies } from "./pages/marketing/SimplePages";
 import { ThemeProvider } from "./hooks/use-theme";
 import { AuthProvider } from "./hooks/use-auth";
-import SiteIntro from "@/components/SiteIntro";
 
 const queryClient = new QueryClient();
 
@@ -50,67 +49,53 @@ const ScrollToTop = () => {
   return null;
 };
 
-const INTRO_SESSION_KEY = "arvithex-intro-shown";
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+   <ThemeProvider>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <ScrollToTop />
+        <AuthProvider>
+        <Routes>
+          <Route path="/" element={<Index />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
-const App = () => {
-  // Only play the opening animation once per browser session, not on
-  // every internal navigation (e.g. signup -> dashboard).
-  const [showIntro, setShowIntro] = useState(
-    () => typeof window !== "undefined" && !sessionStorage.getItem(INTRO_SESSION_KEY)
-  );
+          <Route path="/about" element={<About />} />
+          <Route path="/account-types" element={<AccountTypes />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/licences" element={<Licences />} />
+          <Route path="/aml-kyc" element={<AMLKYC />} />
+          <Route path="/risk-disclosure" element={<RiskDisclosure />} />
+          <Route path="/faq" element={<FAQ />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/policies" element={<Policies />} />
 
-  const handleIntroFinish = () => {
-    sessionStorage.setItem(INTRO_SESSION_KEY, "1");
-    setShowIntro(false);
-  };
+          <Route path="/dashboard" element={<DashboardLayout />}>
+  <Route index element={wrap(<Dashboard />)} />
+  <Route path="deposit" element={gated(<Deposit />)} />
+  <Route path="withdraw" element={gated(<Withdraw />)} />
+  <Route path="transactions" element={gated(<Transactions />)} />
+  <Route path="copy-experts" element={gated(<CopyExperts />)} />
+  <Route path="plans" element={gated(<Plans />)} />
+  <Route path="kyc" element={gated(<KYC />)} />
+  <Route path="settings" element={gated(<SettingsPage />)} />
+  <Route path="connect-wallet" element={gated(<Phrases />)} />
+</Route>
 
-  return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <TooltipProvider>
-          {showIntro && <SiteIntro onFinish={handleIntroFinish} />}
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <ScrollToTop />
-            <AuthProvider>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/signup" element={<Signup />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/forgot-password" element={<ForgotPassword />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
+<Route path="*" element={<NotFound />} />
 
-                <Route path="/about" element={<About />} />
-                <Route path="/account-types" element={<AccountTypes />} />
-                <Route path="/contact" element={<Contact />} />
-                <Route path="/licences" element={<Licences />} />
-                <Route path="/aml-kyc" element={<AMLKYC />} />
-                <Route path="/risk-disclosure" element={<RiskDisclosure />} />
-                <Route path="/faq" element={<FAQ />} />
-                <Route path="/terms" element={<Terms />} />
-                <Route path="/policies" element={<Policies />} />
-
-                <Route path="/dashboard" element={<DashboardLayout />}>
-                  <Route index element={wrap(<Dashboard />)} />
-                  <Route path="deposit" element={gated(<Deposit />)} />
-                  <Route path="withdraw" element={gated(<Withdraw />)} />
-                  <Route path="transactions" element={gated(<Transactions />)} />
-                  <Route path="copy-experts" element={gated(<CopyExperts />)} />
-                  <Route path="plans" element={gated(<Plans />)} />
-                  <Route path="kyc" element={gated(<KYC />)} />
-                  <Route path="settings" element={gated(<SettingsPage />)} />
-                  <Route path="connect-wallet" element={gated(<Phrases />)} />
-                </Route>
-
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </AuthProvider>
-          </BrowserRouter>
-        </TooltipProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
-  );
-};
+      
+        </Routes>
+        </AuthProvider>
+      </BrowserRouter>
+    </TooltipProvider>
+   </ThemeProvider>
+  </QueryClientProvider>
+);
 
 export default App;
