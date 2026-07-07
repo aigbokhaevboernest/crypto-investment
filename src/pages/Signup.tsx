@@ -1,3 +1,4 @@
+import BrandLogo from "@/components/BrandLogo";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -83,10 +84,9 @@ const Signup = () => {
       style={{ backgroundColor: "#172640" }}
     >
       <div className="w-full max-w-2xl">
-        <Link to="/" className="flex flex-col items-center gap-2 mb-6">
-          <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center font-black text-black text-xl">C</div>
-          <span className="font-bold text-lg text-white">CryptoVault</span>
-        </Link>
+        <Link to="/" className="flex flex-col items-center gap-3 mb-6">
+  <BrandLogo className="h-14 w-auto object-contain" />
+</Link>
 
         <div className="rounded-2xl overflow-hidden shadow-2xl" style={{ boxShadow: "0 24px 60px rgba(0,0,0,0.45)" }}>
           <div
