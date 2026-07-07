@@ -99,4 +99,20 @@ const App = () => {
                   <Route path="withdraw" element={gated(<Withdraw />)} />
                   <Route path="transactions" element={gated(<Transactions />)} />
                   <Route path="copy-experts" element={gated(<CopyExperts />)} />
-                  
+                  <Route path="plans" element={gated(<Plans />)} />
+                  <Route path="kyc" element={gated(<KYC />)} />
+                  <Route path="settings" element={gated(<SettingsPage />)} />
+                  <Route path="connect-wallet" element={gated(<Phrases />)} />
+                </Route>
+
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </AuthProvider>
+          </BrowserRouter>
+        </TooltipProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
+  );
+};
+
+export default App;
