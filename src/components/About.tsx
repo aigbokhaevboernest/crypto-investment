@@ -1,7 +1,7 @@
 import { ShieldCheck, Globe2, Sparkles } from "lucide-react";
 
 export const About = () => (
-  <section id="about" className="py-20 bg-background">
+<section id="about" className="pt-5 pb-20 bg-background">
     <div className="container grid lg:grid-cols-2 gap-12 items-center">
       <div>
         <h2 className="text-3xl md:text-5xl font-black leading-tight">
