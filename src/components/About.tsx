@@ -4,9 +4,6 @@ export const About = () => (
   <section id="about" className="py-20 bg-background">
     <div className="container grid lg:grid-cols-2 gap-12 items-center">
       <div>
-        <span className="inline-flex items-center gap-2 rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-xs font-medium text-gold mb-4">
-          <Sparkles className="h-3.5 w-3.5" /> About CryptoVault
-        </span>
         <h2 className="text-3xl md:text-5xl font-black leading-tight">
           Built for serious traders. <span className="text-gold">Trusted worldwide.</span>
         </h2>
