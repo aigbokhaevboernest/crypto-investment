@@ -5,7 +5,7 @@ const KEY = "tv:last-activity";
 const FORCE = "tv:force-logout";
 const EVENTS = [
   "mousemove", "mousedown", "click", "scroll", "keydown",
-  "touchstart", "touchmove", "pointerdown", "focus",
+  "touchstart", "touchmove", "pointerdown",
 ] as const;
 
 const clearAuth = () => {
@@ -54,7 +54,12 @@ export const useIdleLogout = (timeoutMs = 30 * 60 * 1000) => {
       }
     };
 
-    const onVisibility = () => { if (document.visibilityState === "visible") stamp(); };
+    // On tab becoming visible again, CHECK idle time instead of
+    // blindly re-stamping — otherwise backgrounding the tab and
+    // returning after 30+ min never triggers logout.
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") check();
+    };
 
     stamp();
     EVENTS.forEach((ev) => window.addEventListener(ev, stamp, { passive: true }));
