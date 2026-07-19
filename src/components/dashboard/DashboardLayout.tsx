@@ -29,7 +29,7 @@ export const DashboardLayout = ({ children }: { children?: ReactNode }) => {
   const [open, setOpen] = useState(false);
   const [profile, setProfile] = useState<{ full_name: string; account_level: string } | null>(null);
 
-  useIdleLogout(2 * 60 * 1000);
+  useIdleLogout(30 * 60 * 1000);
 
   useEffect(() => {
     if (!loading && !user) navigate("/login");
