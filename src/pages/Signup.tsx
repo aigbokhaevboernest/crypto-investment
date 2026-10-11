@@ -74,7 +74,7 @@ const Signup = () => {
     }
 
     setLoading(false);
-    toast.success("Account created! Welcome to CryptoVault.");
+    toast.success("Account created! Welcome to Arvithex Capital.");
     navigate("/dashboard");
   };
 
