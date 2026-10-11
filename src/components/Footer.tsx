@@ -52,7 +52,7 @@ export const Footer = () => (
       ))}
     </div>
     <div className="container mt-8 pt-6 border-t border-border/40 text-xs text-muted-foreground text-center">
-      © {new Date().getFullYear()} CryptoVault. All rights reserved. Crypto investments are subject to market risk.
+      © {new Date().getFullYear()} Arvithex Capital Alliance. All rights reserved. Crypto investments are subject to market risk.
     </div>
   </footer>
 );
