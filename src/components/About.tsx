@@ -8,9 +8,9 @@ export const About = () => (
           Built for serious traders. <span className="text-gold">Trusted worldwide.</span>
         </h2>
         <p className="text-muted-foreground mt-5 text-base md:text-lg">
-          CryptoVault is a regulated digital-asset platform combining algorithmic mining, AI-powered
+          Arvithex Capital Alliance is a regulated digital-asset platform combining algorithmic mining, AI-powered
           trading, and verified copy-trade experts. We've helped over 250,000 investors across 316
-          countries earn predictable returns on stocks, forex, and crypto — all from a single,
+          countries earn predictable returns on stocks, forex, and crypto.all from a single,
           transparent dashboard.
         </p>
         <div className="mt-8 grid sm:grid-cols-2 gap-4">
