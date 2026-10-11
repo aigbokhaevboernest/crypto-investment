@@ -45,6 +45,29 @@ const fmt = (n: number | null | undefined) =>
 const initialsOf = (name: string) =>
   name.split(" ").map((s) => s[0]).join("").slice(0, 2).toUpperCase();
 
+// Sends an email through the `send-email` edge function and logs the real
+// reason if it fails. supabase.functions.invoke() does NOT throw on HTTP
+// errors (it returns them in `error`), so a plain .catch() would never fire.
+const sendEmail = async (body: {
+  to: string;
+  first_name?: string;
+  subject: string;
+  message: string;
+}): Promise<boolean> => {
+  const { error } = await supabase.functions.invoke("send-email", { body });
+  if (error) {
+    let detail: unknown = error.message;
+    try {
+      detail = await (error as any).context?.json();
+    } catch {
+      /* ignore */
+    }
+    console.error("send-email failed:", detail);
+    return false;
+  }
+  return true;
+};
+
 // Module-level cache so revisiting this page does not re-fetch from scratch.
 let cache: { experts: Expert[]; assignedExpertId: string | null } | null = null;
 
@@ -124,26 +147,59 @@ const CopyExperts = () => {
       return;
     }
 
-    // Send notification emails (fire and forget).
+    // Send notification emails (fire and forget, but failures are logged).
+    // The edge function expects { to, first_name, subject, message }.
     const userEmail = user.email ?? "";
-    const userHtml = `
-      <p>Hi,</p>
-      <p>You have requested to subscribe to <strong>${modalExpert.name}</strong>.</p>
-      <p><strong>Plan:</strong> ${planLabel} – ${amt.toLocaleString()}</p>
-      <p>Please complete your deposit to activate this subscription.</p>
-      <p>Expert: ${modalExpert.name} ${modalExpert.handle ?? ""}<br/>Specialty: ${modalExpert.specialty ?? "—"}</p>
-      <p>Recurring: ${recurring ? "Yes (monthly)" : "No"}</p>
-    `;
-    const adminHtml = `
-      <p>${userEmail || "A user"} has requested to copy <strong>${modalExpert.name}</strong> – ${planLabel} (${amt.toLocaleString()}).</p>
-      <p>Awaiting deposit confirmation.</p>
-    `;
-    void supabase.functions.invoke("send-email", {
-      body: { to: userEmail, subject: `Subscription request: ${modalExpert.name}`, html: userHtml },
-    }).catch(() => {});
-    void supabase.functions.invoke("send-email", {
-      body: { to: ADMIN_EMAIL, subject: `Copy request from ${userEmail || "user"}`, html: adminHtml },
-    }).catch(() => {});
+    const expert = modalExpert; // keep a stable reference for the async block
+
+    void (async () => {
+      // Optional: look up the user's first name for the "Hello {first_name}," greeting.
+      let firstName = "";
+      try {
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        firstName = ((prof as { full_name?: string } | null)?.full_name || "").trim().split(" ")[0] || "";
+      } catch {
+        /* name is optional */
+      }
+
+      const userMessage = `
+You have requested to subscribe to ${expert.name}.
+
+Plan: ${planLabel} – ${amt.toLocaleString()}
+
+Please complete your deposit to activate this subscription.
+
+Expert: ${expert.name} ${expert.handle ?? ""}
+Specialty: ${expert.specialty ?? "—"}
+Recurring: ${recurring ? "Yes (monthly)" : "No"}
+`;
+
+      const adminMessage = `
+${userEmail || "A user"} has requested to copy ${expert.name} – ${planLabel} (${amt.toLocaleString()}).
+Awaiting deposit confirmation.
+`;
+
+      await Promise.allSettled([
+        userEmail
+          ? sendEmail({
+              to: userEmail,
+              first_name: firstName,
+              subject: `Subscription request: ${expert.name}`,
+              message: userMessage,
+            })
+          : Promise.resolve(false),
+        sendEmail({
+          to: ADMIN_EMAIL,
+          first_name: "Admin",
+          subject: `Copy request from ${userEmail || "user"}`,
+          message: adminMessage,
+        }),
+      ]);
+    })();
 
     setSubmitting(false);
     setModalExpert(null);
