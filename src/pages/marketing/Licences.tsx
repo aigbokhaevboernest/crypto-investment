@@ -3,7 +3,7 @@ import { MarketingPage } from "@/components/MarketingPage";
 const Licences = () => (
   <MarketingPage
     title="Licences & Regulation"
-    intro="CryptoVault operates under multiple international regulatory frameworks."
+    intro="Arvithex Capital Alliance operates under multiple international regulatory frameworks."
   >
     <p>
       We hold money services and virtual asset service provider registrations
