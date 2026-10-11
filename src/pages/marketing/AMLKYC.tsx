@@ -6,7 +6,7 @@ const AMLKYC = () => (
     intro="Our commitment to a safe, transparent and compliant trading environment."
   >
     <p>
-      CryptoVault enforces strict Anti-Money-Laundering (AML) and Know-Your-Customer
+      Arvithex Capital Alliance enforces strict Anti-Money-Laundering (AML) and Know-Your-Customer
       (KYC) procedures in line with international standards including FATF
       recommendations, EU AMLD frameworks, and the US Bank Secrecy Act.
     </p>
