@@ -2,11 +2,11 @@ import { MarketingPage } from "@/components/MarketingPage";
 
 const About = () => (
   <MarketingPage
-    title="About CryptoVault"
+    title="About Arvithex Capital Alliance"
     intro="A unified platform for crypto mining, AI-powered trading, and expert copy trading."
   >
     <p>
-      CryptoVault was founded with a single mission: make institutional-grade
+      Arvithex Capital Alliance was founded with a single mission: make institutional-grade
       crypto investing accessible to every retail investor. We combine
       industrial mining infrastructure, machine-learning trading models, and
       verified expert traders so you can grow your portfolio without spending
