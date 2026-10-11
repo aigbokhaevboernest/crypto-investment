@@ -1,7 +1,7 @@
 import { MarketingPage } from "@/components/MarketingPage";
 
 export const FAQ = () => (
-  <MarketingPage title="Frequently Asked Questions" intro="Quick answers to the most common questions about CryptoVault.">
+  <MarketingPage title="Frequently Asked Questions" intro="Quick answers to the most common questions about Arvithex Capital Alliance.">
     {[
       ["How do I open an account?", "Click Sign Up, complete the short form, and your account is ready in under 60 seconds."],
       ["What's the minimum deposit?", "Our Bronze plan starts at $100. Other plans start higher."],
