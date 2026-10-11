@@ -1,86 +1,92 @@
-import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useEffect, useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, ArrowLeft, KeyRound, Mail, ShieldCheck } from "lucide-react";
+import { Loader2, ArrowLeft, KeyRound, Mail, ShieldCheck, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+const BRAND = "Arvithex Capital Alliance";
+const RESEND_SECONDS = 45;
 
-const sendEmail = async (payload: { to: string; subject: string; html: string }) => {
-  try {
-    await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-        apikey: SUPABASE_ANON_KEY,
-      },
-      body: JSON.stringify(payload),
-    });
-  } catch (e) {
-    console.warn("send-email failed", e);
-  }
+/**
+ * All reset logic runs in the `password-reset` edge function.
+ * The browser never generates, sees, or stores the code or any user data.
+ */
+const callReset = async (body: Record<string, unknown>) => {
+  const { data, error } = await supabase.functions.invoke("password-reset", { body });
+  if (error) throw new Error("Network error. Please try again.");
+  if (!data?.ok) throw new Error(data?.error || "Something went wrong. Please try again.");
+  return data;
 };
 
 type Props = { open: boolean; onOpenChange: (o: boolean) => void };
+
+const strength = (p: string) => {
+  let s = 0;
+  if (p.length >= 8) s++;
+  if (/[A-Z]/.test(p) && /[a-z]/.test(p)) s++;
+  if (/\d/.test(p)) s++;
+  if (/[^A-Za-z0-9]/.test(p) || p.length >= 14) s++;
+  return s; // 0-4
+};
+
+const STEP_META = {
+  1: { icon: Mail, title: "Reset your password", sub: "Enter your account email and we'll send you a 6-digit code." },
+  2: { icon: KeyRound, title: "Check your email", sub: "" },
+  3: { icon: ShieldCheck, title: "Create a new password", sub: "Use at least 8 characters. A mix of letters, numbers and symbols is stronger." },
+} as const;
 
 export const ForgotPasswordModal = ({ open, onOpenChange }: Props) => {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
-  const [firstName, setFirstName] = useState("");
   const [code, setCode] = useState("");
   const [pwd, setPwd] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [showPwd, setShowPwd] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
 
   const reset = () => {
-    setStep(1); setEmail(""); setFirstName(""); setCode(""); setPwd(""); setConfirm("");
+    setStep(1); setEmail(""); setCode(""); setPwd(""); setConfirm("");
+    setShowPwd(false); setCooldown(0); setLoading(false);
   };
   const close = () => { reset(); onOpenChange(false); };
+
+  const requestCode = async () => {
+    await callReset({ action: "request", email: email.trim() });
+    setCooldown(RESEND_SECONDS);
+  };
 
   // Step 1 — request code
   const submitEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc("get_profile_by_email", { _email: email.trim() });
-      if (error) throw error;
-      const profile = Array.isArray(data) ? data[0] : data;
-      if (!profile) { toast.error("No account found with that email address."); return; }
-      setFirstName(profile.first_name || "");
-
-      const newCode = String(Math.floor(100000 + Math.random() * 900000));
-      const { error: issueErr } = await supabase.rpc("issue_password_reset_code", {
-        _email: email.trim(),
-        _code: newCode,
-      });
-      if (issueErr) throw issueErr;
-
-      await sendEmail({
-        to: email.trim(),
-        subject: "Your Password Reset Code — CryptoVault",
-        html: `
-          <div style="font-family:Inter,Arial,sans-serif;background:#f7f7fb;padding:40px 0;">
-            <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:14px;padding:32px;">
-              <h1 style="margin:0 0 12px;color:#0e1530;">Hello ${profile.first_name || "there"},</h1>
-              <p style="color:#475569;font-size:14px;">Your password reset code is:</p>
-              <div style="font-size:42px;letter-spacing:10px;font-weight:900;color:#0e1530;text-align:center;padding:24px;border:2px dashed #e2e8f0;border-radius:12px;margin:18px 0;">
-                ${newCode}
-              </div>
-              <p style="color:#64748b;font-size:13px;">This code expires in 15 minutes. If you did not request this, you can ignore this email.</p>
-              <p style="color:#94a3b8;font-size:12px;margin-top:24px;">— CryptoVault Security</p>
-            </div>
-          </div>`,
-      });
-
-      toast.success("Code sent. Check your email.");
+      await requestCode();
+      toast.success("If an account exists for that email, a code is on its way.");
       setStep(2);
     } catch (err: any) {
-      toast.error(err.message || "Something went wrong");
+      toast.error(err.message);
+    } finally { setLoading(false); }
+  };
+
+  const resend = async () => {
+    if (cooldown > 0 || loading) return;
+    setLoading(true);
+    try {
+      await requestCode();
+      setCode("");
+      toast.success("New code sent.");
+    } catch (err: any) {
+      toast.error(err.message);
     } finally { setLoading(false); }
   };
 
@@ -90,14 +96,10 @@ export const ForgotPasswordModal = ({ open, onOpenChange }: Props) => {
     if (code.length !== 6) { toast.error("Enter the 6-digit code."); return; }
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc("verify_password_reset_code", {
-        _email: email.trim(), _code: code,
-      });
-      if (error) throw error;
-      if (!data) { toast.error("Invalid or expired code."); return; }
+      await callReset({ action: "verify", email: email.trim(), code });
       setStep(3);
     } catch (err: any) {
-      toast.error(err.message || "Verification failed");
+      toast.error(err.message);
     } finally { setLoading(false); }
   };
 
@@ -105,99 +107,160 @@ export const ForgotPasswordModal = ({ open, onOpenChange }: Props) => {
   const submitNewPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (pwd.length < 8) { toast.error("Password must be at least 8 characters."); return; }
-    if (pwd !== confirm) { toast.error("Passwords do not match."); return; }
+    if (pwd !== confirm) { toast.error("Passwords don't match."); return; }
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc("complete_password_reset", {
-        _email: email.trim(), _code: code, _new_password: pwd,
-      });
-      if (error) throw error;
-      if (!data) { toast.error("Reset failed. Please request a new code."); return; }
-
-      await sendEmail({
-        to: email.trim(),
-        subject: "Your password was changed — CryptoVault",
-        html: `<p>Hi ${firstName || "there"},</p><p>Your CryptoVault password was just changed. If this wasn't you, contact support immediately.</p>`,
-      });
-
-      toast.success("Password changed successfully. You can now sign in.");
+      await callReset({ action: "complete", email: email.trim(), code, newPassword: pwd });
+      toast.success("Password changed. You can now sign in.");
       close();
     } catch (err: any) {
-      toast.error(err.message || "Reset failed");
+      toast.error(err.message);
     } finally { setLoading(false); }
   };
 
+  const meta = STEP_META[step];
+  const Icon = meta.icon;
+  const score = strength(pwd);
+  const scoreColor = ["bg-muted", "bg-red-500", "bg-amber-500", "bg-lime-500", "bg-emerald-500"][score];
+  const scoreLabel = ["", "Weak", "Fair", "Good", "Strong"][score];
+
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <div className="mx-auto h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-2">
-            {step === 1 && <Mail className="h-5 w-5" />}
-            {step === 2 && <KeyRound className="h-5 w-5" />}
-            {step === 3 && <ShieldCheck className="h-5 w-5" />}
-          </div>
-          <DialogTitle className="text-center">
-            {step === 1 && "Reset your password"}
-            {step === 2 && "Enter verification code"}
-            {step === 3 && "Choose a new password"}
-          </DialogTitle>
-          <p className="text-center text-sm text-muted-foreground">
-            {step === 1 && "We'll email you a 6-digit code."}
-            {step === 2 && `Code sent to ${email}`}
-            {step === 3 && "Must be at least 8 characters."}
-          </p>
-        </DialogHeader>
+      <DialogContent
+        className="w-[calc(100%-2rem)] max-w-md rounded-3xl border border-border/60 bg-card p-0 shadow-2xl overflow-hidden gap-0"
+      >
+        {/* Progress */}
+        <div className="flex gap-1.5 px-6 pt-6" aria-label={`Step ${step} of 3`}>
+          {[1, 2, 3].map((n) => (
+            <div
+              key={n}
+              className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${n <= step ? "bg-primary" : "bg-muted"}`}
+            />
+          ))}
+        </div>
 
-        {step === 1 && (
-          <form onSubmit={submitEmail} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Email address</Label>
-              <Input type="email" required value={email} onChange={e => setEmail(e.target.value)} />
+        <div className="px-6 pb-7 pt-5">
+          <DialogHeader className="items-center space-y-3 text-center sm:text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20">
+              <Icon className="h-6 w-6" />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Send reset code
-            </Button>
-          </form>
-        )}
+            <DialogTitle className="text-xl font-semibold tracking-tight">{meta.title}</DialogTitle>
+            <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
+              {step === 2 ? (
+                <>We sent a 6-digit code to <span className="font-medium text-foreground break-all">{email}</span>. It expires in 15 minutes.</>
+              ) : meta.sub}
+            </DialogDescription>
+          </DialogHeader>
 
-        {step === 2 && (
-          <form onSubmit={submitCode} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>6-digit code</Label>
-              <Input inputMode="numeric" maxLength={6} value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ""))} className="text-center text-xl tracking-[0.5em] font-bold" />
-            </div>
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={() => setStep(1)} disabled={loading}>
-                <ArrowLeft className="h-4 w-4" />
+          {step === 1 && (
+            <form onSubmit={submitEmail} className="mt-6 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="fp-email">Email address</Label>
+                <Input
+                  id="fp-email" type="email" required autoFocus autoComplete="email"
+                  placeholder="you@example.com"
+                  className="h-12 rounded-xl"
+                  value={email} onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              <Button type="submit" className="h-12 w-full rounded-xl text-base" disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Send reset code
               </Button>
-              <Button type="submit" className="flex-1" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Verify code
+              <Button type="button" variant="ghost" className="w-full rounded-xl" onClick={close}>
+                Back to sign in
               </Button>
-            </div>
-          </form>
-        )}
+            </form>
+          )}
 
-        {step === 3 && (
-          <form onSubmit={submitNewPassword} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>New password</Label>
-              <Input type="password" required value={pwd} onChange={e => setPwd(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Confirm password</Label>
-              <Input type="password" required value={confirm} onChange={e => setConfirm(e.target.value)} />
-            </div>
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={() => setStep(2)} disabled={loading}>
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <Button type="submit" className="flex-1" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Change password
-              </Button>
-            </div>
-          </form>
-        )}
+          {step === 2 && (
+            <form onSubmit={submitCode} className="mt-6 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="fp-code" className="sr-only">6-digit code</Label>
+                <Input
+                  id="fp-code" autoFocus inputMode="numeric" autoComplete="one-time-code"
+                  maxLength={6} placeholder="••••••"
+                  className="h-14 rounded-xl text-center text-2xl font-bold tracking-[0.5em]"
+                  value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" className="h-12 rounded-xl px-4" aria-label="Back" onClick={() => setStep(1)} disabled={loading}>
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+                <Button type="submit" className="h-12 flex-1 rounded-xl text-base" disabled={loading || code.length !== 6}>
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Verify code
+                </Button>
+              </div>
+              <p className="text-center text-sm text-muted-foreground">
+                Didn't get it?{" "}
+                <button
+                  type="button" onClick={resend} disabled={cooldown > 0 || loading}
+                  className="font-medium text-primary disabled:text-muted-foreground disabled:no-underline hover:underline"
+                >
+                  {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend code"}
+                </button>
+              </p>
+            </form>
+          )}
+
+          {step === 3 && (
+            <form onSubmit={submitNewPassword} className="mt-6 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="fp-pwd">New password</Label>
+                <div className="relative">
+                  <Input
+                    id="fp-pwd" required autoFocus autoComplete="new-password"
+                    type={showPwd ? "text" : "password"}
+                    className="h-12 rounded-xl pr-11"
+                    value={pwd} onChange={(e) => setPwd(e.target.value)}
+                  />
+                  <button
+                    type="button" onClick={() => setShowPwd((s) => !s)}
+                    aria-label={showPwd ? "Hide password" : "Show password"}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {pwd && (
+                  <div className="flex items-center gap-3">
+                    <div className="flex flex-1 gap-1">
+                      {[1, 2, 3, 4].map((n) => (
+                        <div key={n} className={`h-1 flex-1 rounded-full ${n <= score ? scoreColor : "bg-muted"}`} />
+                      ))}
+                    </div>
+                    <span className="w-12 text-right text-xs text-muted-foreground">{scoreLabel}</span>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="fp-confirm">Confirm password</Label>
+                <Input
+                  id="fp-confirm" required autoComplete="new-password"
+                  type={showPwd ? "text" : "password"}
+                  className="h-12 rounded-xl"
+                  value={confirm} onChange={(e) => setConfirm(e.target.value)}
+                />
+                {confirm && pwd !== confirm && (
+                  <p className="text-xs text-red-500">Passwords don't match.</p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" className="h-12 rounded-xl px-4" aria-label="Back" onClick={() => setStep(2)} disabled={loading}>
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+                <Button type="submit" className="h-12 flex-1 rounded-xl text-base" disabled={loading}>
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Change password
+                </Button>
+              </div>
+            </form>
+          )}
+
+          <p className="mt-6 text-center text-xs text-muted-foreground">{BRAND} Security</p>
+        </div>
       </DialogContent>
     </Dialog>
   );
