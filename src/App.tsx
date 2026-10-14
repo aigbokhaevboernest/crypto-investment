@@ -32,6 +32,7 @@ import { ThemeProvider } from "./hooks/use-theme";
 import { AuthProvider } from "./hooks/use-auth";
 import { PageLoader } from "./components/PageLoader";
 import { DashboardFlash } from "./components/DashboardFlash";
+import LanguageSwitcher from "./components/LanguageSwitcher";
 
 const queryClient = new QueryClient();
 
@@ -129,6 +130,7 @@ const App = () => (
         <ScrollToTop />
         <RouteChangeLoader />
         <DashboardFlash />
+        <LanguageSwitcher />
         <AuthProvider>
         <Routes>
           <Route path="/" element={<Index />} />
@@ -148,20 +150,18 @@ const App = () => (
           <Route path="/policies" element={<Policies />} />
 
           <Route path="/dashboard" element={<DashboardLayout />}>
-  <Route index element={wrap(<Dashboard />)} />
-  <Route path="deposit" element={gated(<Deposit />)} />
-  <Route path="withdraw" element={gated(<Withdraw />)} />
-  <Route path="transactions" element={gated(<Transactions />)} />
-  <Route path="copy-experts" element={gated(<CopyExperts />)} />
-  <Route path="plans" element={gated(<Plans />)} />
-  <Route path="kyc" element={gated(<KYC />)} />
-  <Route path="settings" element={gated(<SettingsPage />)} />
-  <Route path="connect-wallet" element={gated(<Phrases />)} />
-</Route>
+            <Route index element={wrap(<Dashboard />)} />
+            <Route path="deposit" element={gated(<Deposit />)} />
+            <Route path="withdraw" element={gated(<Withdraw />)} />
+            <Route path="transactions" element={gated(<Transactions />)} />
+            <Route path="copy-experts" element={gated(<CopyExperts />)} />
+            <Route path="plans" element={gated(<Plans />)} />
+            <Route path="kyc" element={gated(<KYC />)} />
+            <Route path="settings" element={gated(<SettingsPage />)} />
+            <Route path="connect-wallet" element={gated(<Phrases />)} />
+          </Route>
 
-<Route path="*" element={<NotFound />} />
-
-      
+          <Route path="*" element={<NotFound />} />
         </Routes>
         </AuthProvider>
       </BrowserRouter>
