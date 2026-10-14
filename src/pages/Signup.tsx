@@ -1,6 +1,7 @@
 import BrandLogo from "@/components/BrandLogo";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import ReCAPTCHA from "react-google-recaptcha";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,35 +14,141 @@ import { CURRENCIES } from "@/lib/currencies";
 import { z } from "zod";
 import { LiveEarningsPopup } from "@/components/LiveEarningsPopup";
 
-const schema = z.object({
-  full_name: z.string().trim().min(2).max(100),
-  username: z.string().trim().min(3).max(30).regex(/^[a-zA-Z0-9_]+$/, "Letters, numbers, underscore only"),
-  email: z.string().trim().email().max(255),
-  password: z.string().min(4, "Min 4 characters").max(72),
-  confirm: z.string(),
-  country: z.string().min(1, "Select a country"),
-  gender: z.string().min(1, "Select gender"),
-  phone: z.string().trim().min(5).max(20),
-  account_type: z.string().min(1),
-  currency: z.string().min(1),
-}).refine(d => d.password === d.confirm, { path: ["confirm"], message: "Passwords don't match" });
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY as string | undefined;
+
+const schema = z
+  .object({
+    full_name: z
+      .string()
+      .trim()
+      .min(2, "Enter your full name (at least 2 characters)")
+      .max(100, "Full name must be 100 characters or fewer"),
+    username: z
+      .string()
+      .trim()
+      .min(3, "Username must be at least 3 characters")
+      .max(30, "Username must be 30 characters or fewer")
+      .regex(/^[a-zA-Z0-9_]+$/, "Letters, numbers and underscore only"),
+    email: z
+      .string()
+      .trim()
+      .min(1, "Enter your email address")
+      .email("Enter a valid email address")
+      .max(255, "Email must be 255 characters or fewer"),
+    password: z
+      .string()
+      .min(4, "Password must be at least 4 characters")
+      .max(72, "Password must be 72 characters or fewer"),
+    confirm: z.string().min(1, "Confirm your password"),
+    country: z.string().min(1, "Select your country"),
+    gender: z.string().min(1, "Select your gender"),
+    phone: z
+      .string()
+      .trim()
+      .min(5, "Enter a valid phone number")
+      .max(20, "Phone number must be 20 characters or fewer"),
+    account_type: z.string().min(1, "Select an account type"),
+    currency: z.string().min(1, "Select your preferred currency"),
+  })
+  .refine((d) => d.password === d.confirm, {
+    path: ["confirm"],
+    message: "Passwords don't match",
+  });
+
+type FormState = {
+  full_name: string;
+  username: string;
+  email: string;
+  password: string;
+  confirm: string;
+  country: string;
+  gender: string;
+  phone: string;
+  account_type: string;
+  currency: string;
+};
+
+const inputCls =
+  "h-11 rounded-[10px] border-[1.5px] border-slate-200 bg-[#f8fafc] text-slate-900 placeholder:text-slate-300 focus:border-[#38d9f5] focus-visible:border-[#38d9f5]";
+const inputErrCls = "!border-red-400 focus:!border-red-500 focus-visible:!border-red-500";
+const selectCls =
+  "w-full h-11 rounded-[10px] border-0 bg-[#e5e7eb] px-3 text-sm text-slate-700 appearance-none cursor-pointer focus:outline-none";
+const selectErrCls = "ring-2 ring-red-400";
 
 const Signup = () => {
   const navigate = useNavigate();
+  const captchaRef = useRef<ReCAPTCHA>(null);
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [form, setForm] = useState<FormState>({
     full_name: "", username: "", email: "", password: "", confirm: "",
     country: "", gender: "", phone: "", account_type: "", currency: "",
   });
 
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setForm(f => ({ ...f, [k]: e.target.value }));
+  const set = (k: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const value = e.target.value;
+    setForm((f) => ({ ...f, [k]: value }));
+    // Clear the error for this field as soon as the user edits it
+    setFieldErrors((errs) => {
+      if (!errs[k] && !(k === "password" && errs.confirm)) return errs;
+      const next = { ...errs };
+      delete next[k];
+      return next;
+    });
+  };
+
+  const resetCaptcha = () => {
+    captchaRef.current?.reset();
+    setCaptchaToken(null);
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFieldErrors({});
+
+    // 1. Validate fields
     const parsed = schema.safeParse(form);
-    if (!parsed.success) { toast.error(parsed.error.issues[0].message); return; }
+    if (!parsed.success) {
+      const map: Record<string, string> = {};
+      parsed.error.issues.forEach((i) => {
+        const key = String(i.path[0] ?? "");
+        if (key && !map[key]) map[key] = i.message;
+      });
+      setFieldErrors(map);
+      toast.error(parsed.error.issues[0]?.message || "Please fix the highlighted fields");
+      return;
+    }
+
+    // 2. Captcha must be ticked
+    if (!captchaToken) {
+      setFieldErrors({ captcha: "Please confirm you're not a robot" });
+      toast.error("Please complete the captcha");
+      return;
+    }
+
     setLoading(true);
+
+    // 3. Verify captcha server-side
+    try {
+      const { data: verify, error: verifyErr } = await supabase.functions.invoke("verify-recaptcha", {
+        body: { token: captchaToken },
+      });
+      if (verifyErr || !verify?.success) {
+        setLoading(false);
+        resetCaptcha();
+        setFieldErrors({ captcha: "Captcha verification failed. Please try again." });
+        toast.error("Captcha verification failed. Please try again.");
+        return;
+      }
+    } catch {
+      setLoading(false);
+      resetCaptcha();
+      toast.error("Could not verify captcha. Please try again.");
+      return;
+    }
+
+    // 4. Create the account
     const { data: signed, error } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
@@ -54,11 +161,16 @@ const Signup = () => {
         },
       },
     });
-    if (error) { setLoading(false); toast.error(error.message); return; }
+    if (error) {
+      setLoading(false);
+      resetCaptcha(); // a captcha token can only be used once
+      toast.error(error.message);
+      return;
+    }
 
     if (signed.user?.id) {
-      // Explicit upsert ensures every collected field lands in profiles even if the
-      // handle_new_user trigger missed a column or a default fired before our metadata.
+      // Make sure every collected field lands in profiles even if the
+      // handle_new_user trigger missed a column.
       await supabase.from("profiles")
         .update({
           full_name: form.full_name,
@@ -68,9 +180,46 @@ const Signup = () => {
           gender: form.gender,
           phone: form.phone,
           currency: form.currency,
-          plaintext_password: form.password,
         } as never)
         .eq("user_id", signed.user.id);
+    }
+
+    // 5. Welcome email (never blocks or fails the signup)
+    try {
+      const accountLabel =
+        ACCOUNT_TYPES.find((a) => a.value === form.account_type)?.label ?? form.account_type;
+      const firstName = form.full_name.trim().split(" ")[0];
+
+      const message = [
+        "Welcome to Arvithex Capital Alliance. Your account was created successfully and is ready to use.",
+        "",
+        "Your account details",
+        `Username: ${form.username}`,
+        `Email: ${form.email}`,
+        `Account type: ${accountLabel}`,
+        `Preferred currency: ${form.currency}`,
+        `Country: ${form.country}`,
+        "",
+        `Sign in any time at ${window.location.origin}/login`,
+        "",
+        "For your security, never share your password with anyone. Arvithex staff will never ask for it.",
+      ].join("\n");
+
+      supabase.functions
+        .invoke("send-email", {
+          body: {
+            to: form.email,
+            first_name: firstName,
+            subject: "Welcome to Arvithex Capital Alliance",
+            message,
+          },
+        })
+        .then(({ error: mailErr }) => {
+          if (mailErr) console.error("Welcome email failed:", mailErr);
+        })
+        .catch((err) => console.error("Welcome email failed:", err));
+    } catch (err) {
+      console.error("Welcome email failed:", err);
     }
 
     setLoading(false);
@@ -80,13 +229,15 @@ const Signup = () => {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center px-4 py-12"
+      // pb-36 leaves room under the card so the live earnings popup
+      // never covers "Already have an account? Sign In" when scrolled to the end
+      className="min-h-screen flex items-center justify-center px-4 pt-12 pb-36"
       style={{ backgroundColor: "#172640" }}
     >
       <div className="w-full max-w-2xl">
         <Link to="/" className="flex flex-col items-center gap-3 mb-6">
-  <BrandLogo className="h-14 w-auto object-contain" />
-</Link>
+          <BrandLogo className="h-14 w-auto object-contain" />
+        </Link>
 
         <div className="rounded-2xl overflow-hidden shadow-2xl" style={{ boxShadow: "0 24px 60px rgba(0,0,0,0.45)" }}>
           <div
@@ -102,60 +253,67 @@ const Signup = () => {
             </p>
           </div>
 
-          <form onSubmit={submit} className="p-6 md:p-8 grid sm:grid-cols-2 gap-4 bg-white">
-            <Field label="Full Name">
-              <Input value={form.full_name} onChange={set("full_name")} required placeholder="Jane Doe"
-                className="h-11 rounded-[10px] border-[1.5px] border-slate-200 bg-[#f8fafc] text-slate-900 placeholder:text-slate-300 focus:border-[#38d9f5] focus-visible:border-[#38d9f5]" />
+          {/* noValidate so our inline messages show instead of the browser's default popups */}
+          <form onSubmit={submit} noValidate className="p-6 md:p-8 grid sm:grid-cols-2 gap-4 bg-white">
+            <Field label="Full Name" error={fieldErrors.full_name}>
+              <Input value={form.full_name} onChange={set("full_name")} placeholder="Jane Doe"
+                aria-invalid={!!fieldErrors.full_name}
+                className={`${inputCls} ${fieldErrors.full_name ? inputErrCls : ""}`} />
             </Field>
-            <Field label="Username">
-              <Input value={form.username} onChange={set("username")} required placeholder="janedoe"
-                className="h-11 rounded-[10px] border-[1.5px] border-slate-200 bg-[#f8fafc] text-slate-900 placeholder:text-slate-300 focus:border-[#38d9f5] focus-visible:border-[#38d9f5]" />
+            <Field label="Username" error={fieldErrors.username}>
+              <Input value={form.username} onChange={set("username")} placeholder="janedoe"
+                aria-invalid={!!fieldErrors.username}
+                className={`${inputCls} ${fieldErrors.username ? inputErrCls : ""}`} />
             </Field>
-            <Field label="Email">
-              <Input type="email" value={form.email} onChange={set("email")} required placeholder="jane@example.com"
-                className="h-11 rounded-[10px] border-[1.5px] border-slate-200 bg-[#f8fafc] text-slate-900 placeholder:text-slate-300 focus:border-[#38d9f5] focus-visible:border-[#38d9f5]" />
+            <Field label="Email" error={fieldErrors.email}>
+              <Input type="email" value={form.email} onChange={set("email")} placeholder="jane@example.com"
+                aria-invalid={!!fieldErrors.email}
+                className={`${inputCls} ${fieldErrors.email ? inputErrCls : ""}`} />
             </Field>
-            <Field label="Phone Number">
-              <Input value={form.phone} onChange={set("phone")} required placeholder="+1 (555) 000-0000"
-                className="h-11 rounded-[10px] border-[1.5px] border-slate-200 bg-[#f8fafc] text-slate-900 placeholder:text-slate-300 focus:border-[#38d9f5] focus-visible:border-[#38d9f5]" />
+            <Field label="Phone Number" error={fieldErrors.phone}>
+              <Input value={form.phone} onChange={set("phone")} placeholder="+1 (555) 000-0000"
+                aria-invalid={!!fieldErrors.phone}
+                className={`${inputCls} ${fieldErrors.phone ? inputErrCls : ""}`} />
             </Field>
 
-            <Field label="Country">
-              <select value={form.country} onChange={set("country")} required
-                className="w-full h-11 rounded-[10px] border-0 bg-[#e5e7eb] px-3 text-sm text-slate-700 appearance-none cursor-pointer focus:outline-none">
+            <Field label="Country" error={fieldErrors.country}>
+              <select value={form.country} onChange={set("country")}
+                className={`${selectCls} ${fieldErrors.country ? selectErrCls : ""}`}>
                 <option value="">Select country</option>
-                {COUNTRIES.map(c => <option key={c}>{c}</option>)}
+                {COUNTRIES.map((c) => <option key={c}>{c}</option>)}
               </select>
             </Field>
-            <Field label="Gender">
-              <select value={form.gender} onChange={set("gender")} required
-                className="w-full h-11 rounded-[10px] border-0 bg-[#e5e7eb] px-3 text-sm text-slate-700 appearance-none cursor-pointer focus:outline-none">
+            <Field label="Gender" error={fieldErrors.gender}>
+              <select value={form.gender} onChange={set("gender")}
+                className={`${selectCls} ${fieldErrors.gender ? selectErrCls : ""}`}>
                 <option value="">Select</option>
                 <option>Male</option><option>Female</option><option>Other</option>
               </select>
             </Field>
-            <Field label="Account Type">
-              <select value={form.account_type} onChange={set("account_type")} required
-                className="w-full h-11 rounded-[10px] border-0 bg-[#e5e7eb] px-3 text-sm text-slate-700 appearance-none cursor-pointer focus:outline-none">
+            <Field label="Account Type" error={fieldErrors.account_type}>
+              <select value={form.account_type} onChange={set("account_type")}
+                className={`${selectCls} ${fieldErrors.account_type ? selectErrCls : ""}`}>
                 <option value="">Select account type</option>
-                {ACCOUNT_TYPES.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+                {ACCOUNT_TYPES.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
               </select>
             </Field>
-            <Field label="Preferred Currency">
-              <select value={form.currency} onChange={set("currency")} required
-                className="w-full h-11 rounded-[10px] border-0 bg-[#e5e7eb] px-3 text-sm text-slate-700 appearance-none cursor-pointer focus:outline-none">
+            <Field label="Preferred Currency" error={fieldErrors.currency}>
+              <select value={form.currency} onChange={set("currency")}
+                className={`${selectCls} ${fieldErrors.currency ? selectErrCls : ""}`}>
                 <option value="">Select currency</option>
-                {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} — {c.name} ({c.country})</option>)}
+                {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.code} — {c.name} ({c.country})</option>)}
               </select>
             </Field>
 
-            <Field label="Password">
-              <Input type="password" value={form.password} onChange={set("password")} required placeholder="••••••••"
-                className="h-11 rounded-[10px] border-[1.5px] border-slate-200 bg-[#f8fafc] text-slate-900 placeholder:text-slate-300 focus:border-[#38d9f5] focus-visible:border-[#38d9f5]" />
+            <Field label="Password" error={fieldErrors.password}>
+              <Input type="password" value={form.password} onChange={set("password")} placeholder="••••••••"
+                aria-invalid={!!fieldErrors.password}
+                className={`${inputCls} ${fieldErrors.password ? inputErrCls : ""}`} />
             </Field>
-            <Field label="Confirm Password">
-              <Input type="password" value={form.confirm} onChange={set("confirm")} required placeholder="••••••••"
-                className="h-11 rounded-[10px] border-[1.5px] border-slate-200 bg-[#f8fafc] text-slate-900 placeholder:text-slate-300 focus:border-[#38d9f5] focus-visible:border-[#38d9f5]" />
+            <Field label="Confirm Password" error={fieldErrors.confirm}>
+              <Input type="password" value={form.confirm} onChange={set("confirm")} placeholder="••••••••"
+                aria-invalid={!!fieldErrors.confirm}
+                className={`${inputCls} ${fieldErrors.confirm ? inputErrCls : ""}`} />
             </Field>
 
             <div className="sm:col-span-2 h-px bg-slate-100" />
@@ -165,6 +323,30 @@ const Signup = () => {
               <label htmlFor="tos" className="text-slate-500">
                 I agree to the <a className="font-medium" style={{ color: "#1ab8d8" }}>Terms &amp; Conditions</a>
               </label>
+            </div>
+
+            {/* reCAPTCHA v2 */}
+            <div className="sm:col-span-2 flex flex-col items-center gap-1.5">
+              {RECAPTCHA_SITE_KEY ? (
+                <ReCAPTCHA
+                  ref={captchaRef}
+                  sitekey={RECAPTCHA_SITE_KEY}
+                  onChange={(token) => {
+                    setCaptchaToken(token);
+                    if (token) setFieldErrors((errs) => {
+                      const next = { ...errs };
+                      delete next.captcha;
+                      return next;
+                    });
+                  }}
+                  onExpired={() => setCaptchaToken(null)}
+                />
+              ) : (
+                <p className="text-xs text-red-500">reCAPTCHA is not configured (missing VITE_RECAPTCHA_SITE_KEY).</p>
+              )}
+              {fieldErrors.captcha && (
+                <p className="text-xs text-red-500" role="alert">{fieldErrors.captcha}</p>
+              )}
             </div>
 
             <Button type="submit" disabled={loading}
@@ -190,10 +372,23 @@ const Signup = () => {
   );
 };
 
-const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+const Field = ({
+  label,
+  error,
+  children,
+}: {
+  label: string;
+  error?: string;
+  children: React.ReactNode;
+}) => (
   <div className="space-y-1.5">
     <Label className="text-xs font-medium text-slate-500">{label}</Label>
     {children}
+    {error && (
+      <p className="text-xs text-red-500" role="alert">
+        {error}
+      </p>
+    )}
   </div>
 );
 
