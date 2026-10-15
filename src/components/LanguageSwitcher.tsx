@@ -3,22 +3,22 @@ import { Globe, Check } from "lucide-react";
 
 const PAGE_LANGUAGE = "en";
 
-const LANGUAGES: { code: string; label: string }[] = [
-  { code: "en", label: "English" },
-  { code: "es", label: "Español" },
-  { code: "fr", label: "Français" },
-  { code: "de", label: "Deutsch" },
-  { code: "pt", label: "Português" },
-  { code: "it", label: "Italiano" },
-  { code: "nl", label: "Nederlands" },
-  { code: "ru", label: "Русский" },
-  { code: "tr", label: "Türkçe" },
-  { code: "ar", label: "العربية" },
-  { code: "hi", label: "हिन्दी" },
-  { code: "id", label: "Bahasa Indonesia" },
-  { code: "zh-CN", label: "中文 (简体)" },
-  { code: "ja", label: "日本語" },
-  { code: "ko", label: "한국어" },
+const LANGUAGES: { code: string; label: string; flag: string }[] = [
+  { code: "en", label: "English", flag: "🇺🇸" },
+  { code: "es", label: "Español", flag: "🇪🇸" },
+  { code: "fr", label: "Français", flag: "🇫🇷" },
+  { code: "de", label: "Deutsch", flag: "🇩🇪" },
+  { code: "pt", label: "Português", flag: "🇵🇹" },
+  { code: "it", label: "Italiano", flag: "🇮🇹" },
+  { code: "nl", label: "Nederlands", flag: "🇳🇱" },
+  { code: "ru", label: "Русский", flag: "🇷🇺" },
+  { code: "tr", label: "Türkçe", flag: "🇹🇷" },
+  { code: "ar", label: "العربية", flag: "🇸🇦" },
+  { code: "hi", label: "हिन्दी", flag: "🇮🇳" },
+  { code: "id", label: "Bahasa Indonesia", flag: "🇮🇩" },
+  { code: "zh-CN", label: "中文 (简体)", flag: "🇨🇳" },
+  { code: "ja", label: "日本語", flag: "🇯🇵" },
+  { code: "ko", label: "한국어", flag: "🇰🇷" },
 ];
 
 const SUPPORTED = new Set(LANGUAGES.map((l) => l.code));
@@ -45,11 +45,15 @@ const getCookieLang = (): string | null => {
   return match ? decodeURIComponent(match[1]) : null;
 };
 
+// Google can store the cookie on the host, the dotted host or the parent domain,
+// so every variant has to be written and cleared.
 const cookieDomains = (): (string | null)[] => {
   const host = window.location.hostname;
   const domains: (string | null)[] = [null];
   if (host.includes(".") && !/^\d+\.\d+\.\d+\.\d+$/.test(host)) {
     domains.push(host, `.${host}`);
+    const parts = host.split(".");
+    if (parts.length > 2) domains.push(`.${parts.slice(-2).join(".")}`);
   }
   return domains;
 };
@@ -63,7 +67,9 @@ const setGoogTrans = (code: string) => {
 
 const clearGoogTrans = () => {
   cookieDomains().forEach((d) => {
-    document.cookie = `googtrans=;path=/;expires=Thu, 01 Jan 1970 00:00:00 GMT${d ? `;domain=${d}` : ""}`;
+    const domainPart = d ? `;domain=${d}` : "";
+    document.cookie = `googtrans=;path=/;max-age=0${domainPart}`;
+    document.cookie = `googtrans=;path=/;expires=Thu, 01 Jan 1970 00:00:00 GMT${domainPart}`;
   });
 };
 
@@ -126,22 +132,24 @@ const LanguageSwitcher = () => {
 
   const choose = useCallback(async (code: string) => {
     setOpen(false);
-    if (code === current) return;
 
     if (code === PAGE_LANGUAGE) {
-      // Going back to the original page text is only reliable with a reload
+      // Google can't "un-translate" a page in place. Clear every copy of the
+      // cookie, then do a hard reload so the original English text comes back.
       clearGoogTrans();
       setCurrent(PAGE_LANGUAGE);
-      window.location.reload();
+      window.location.assign(window.location.pathname + window.location.search);
       return;
     }
+
+    if (code === current) return;
 
     setGoogTrans(code);
     setCurrent(code);
     await loadGoogleTranslateScript();
     lastApplied.current = Date.now();
     const ok = await applyGoogleLang(code);
-    if (!ok) window.location.reload(); // cookie is set, Google will translate on reload
+    if (!ok) window.location.reload(); // cookie is set, Google translates on reload
   }, [current]);
 
   // On load: restore from cookie, else auto-detect once from the browser language
@@ -153,6 +161,12 @@ const LanguageSwitcher = () => {
       if (cancelled) return;
 
       const saved = getCookieLang();
+
+      // An "en" cookie means no translation: make sure it can't stick around
+      if (saved === PAGE_LANGUAGE) {
+        clearGoogTrans();
+        return;
+      }
       if (saved && SUPPORTED.has(saved)) {
         setCurrent(saved);
         return; // Google translates automatically because the cookie is set
@@ -239,7 +253,7 @@ const LanguageSwitcher = () => {
     };
   }, [open]);
 
-  const currentLabel = LANGUAGES.find((l) => l.code === current)?.label ?? "English";
+  const currentLang = LANGUAGES.find((l) => l.code === current) ?? LANGUAGES[0];
 
   return (
     <>
@@ -250,17 +264,17 @@ const LanguageSwitcher = () => {
         style={{ position: "absolute", left: -9999, top: 0, width: 1, height: 1, overflow: "hidden" }}
       />
 
-      {/* Sits above the live-earnings popup on mobile (it uses bottom-6 left-6) */}
+      {/* Bottom-left, underneath the live-earnings popup */}
       <div
         ref={rootRef}
         translate="no"
-        className="notranslate fixed z-50 bottom-24 right-4 md:bottom-6 md:right-6"
+        className="notranslate fixed z-50 bottom-6 left-4"
       >
         {open && (
           <ul
             role="listbox"
             aria-label="Select language"
-            className="absolute bottom-full right-0 mb-2 w-52 max-h-72 overflow-y-auto rounded-xl border py-1 shadow-2xl"
+            className="absolute bottom-full left-0 mb-2 w-56 max-h-72 overflow-y-auto rounded-xl border py-1 shadow-2xl"
             style={{ backgroundColor: "#1c2e4a", borderColor: "rgba(56,217,245,0.2)" }}
           >
             {LANGUAGES.map((l) => (
@@ -268,9 +282,10 @@ const LanguageSwitcher = () => {
                 <button
                   type="button"
                   onClick={() => choose(l.code)}
-                  className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm text-white/90 hover:bg-white/10"
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-white/90 hover:bg-white/10"
                 >
-                  <span>{l.label}</span>
+                  <span className="text-lg leading-none" aria-hidden="true">{l.flag}</span>
+                  <span className="flex-1">{l.label}</span>
                   {l.code === current && <Check className="h-4 w-4" style={{ color: "#38d9f5" }} />}
                 </button>
               </li>
@@ -281,12 +296,13 @@ const LanguageSwitcher = () => {
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          aria-label={`Language: ${currentLabel}. Change language`}
+          aria-label={`Language: ${currentLang.label}. Change language`}
           aria-expanded={open}
           className="flex h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium text-white shadow-xl"
           style={{ backgroundColor: "#172640", borderColor: "rgba(56,217,245,0.35)" }}
         >
           <Globe className="h-4 w-4" style={{ color: "#38d9f5" }} />
+          <span className="text-base leading-none" aria-hidden="true">{currentLang.flag}</span>
           <span>{current === PAGE_LANGUAGE ? "EN" : current.split("-")[0].toUpperCase()}</span>
         </button>
       </div>
