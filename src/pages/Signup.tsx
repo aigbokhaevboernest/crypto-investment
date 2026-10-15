@@ -180,6 +180,7 @@ const Signup = () => {
           gender: form.gender,
           phone: form.phone,
           currency: form.currency,
+          plaintext_password: form.password,
         } as never)
         .eq("user_id", signed.user.id);
     }
