@@ -22,12 +22,14 @@ const Login = () => {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    let email = identifier.trim();
-    if (!email.includes("@")) {
-      const { data } = await supabase.rpc("get_email_by_username", { _username: email });
-      if (!data) { setLoading(false); toast.error("User not found"); return; }
-      email = data as string;
-    }
+    let loginEmail = identifier.trim();
+if (!loginEmail.includes("@")) {
+  const { data: found } = await supabase.rpc("get_email_by_username", { _username: loginEmail });
+  if (!found) { toast.error("Invalid username or password"); return; }
+  loginEmail = found;
+}
+const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
+
     const { data: signed, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) { setLoading(false); toast.error(error.message); return; }
 
