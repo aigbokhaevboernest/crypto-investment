@@ -22,16 +22,30 @@ const Login = () => {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    let loginEmail = identifier.trim();
-if (!loginEmail.includes("@")) {
-  const { data: found } = await supabase.rpc("get_email_by_username", { _username: loginEmail });
-  if (!found) { toast.error("Invalid username or password"); return; }
-  loginEmail = found;
-}
-const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
 
-    const { data: signed, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) { setLoading(false); toast.error(error.message); return; }
+    // Accept either an email or a username
+    let loginEmail = identifier.trim();
+    if (!loginEmail.includes("@")) {
+      const { data: found, error: lookupError } = await supabase.rpc("get_email_by_username", {
+        _username: loginEmail,
+      });
+      if (lookupError || !found) {
+        setLoading(false);
+        toast.error("Invalid username/email or password");
+        return;
+      }
+      loginEmail = found as string;
+    }
+
+    const { data: signed, error } = await supabase.auth.signInWithPassword({
+      email: loginEmail,
+      password,
+    });
+    if (error) {
+      setLoading(false);
+      toast.error(error.message);
+      return;
+    }
 
     if (signed.user?.id) {
       const { data: prof } = await supabase
@@ -58,10 +72,10 @@ const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, pa
       style={{ backgroundColor: "#172640" }}
     >
       <div className="w-full max-w-md">
-  
+
         <Link to="/" className="flex flex-col items-center gap-3 mb-6">
-  <BrandLogo className="h-14 w-auto object-contain" />
-</Link>
+          <BrandLogo className="h-14 w-auto object-contain" />
+        </Link>
 
         <div className="rounded-2xl overflow-hidden" style={{ boxShadow: "0 24px 60px rgba(0,0,0,0.45)" }}>
           {/* Header — dark navy, no cyan clash */}
@@ -74,20 +88,24 @@ const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, pa
           >
             <h1 className="text-2xl font-black text-white">Welcome back</h1>
             <p className="text-sm mt-1" style={{ color: "rgba(255,255,255,0.5)" }}>
-              Sign in with your username.
+              Sign in with your username or email.
             </p>
           </div>
 
           {/* Form body */}
           <form onSubmit={submit} className="p-6 md:p-8 space-y-5 bg-white">
-            {/* Username */}
+            {/* Username / Email */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-slate-500">Username</Label>
+              <Label className="text-xs font-medium text-slate-500">Username / Email</Label>
               <Input
+                type="text"
                 value={identifier}
                 onChange={e => setIdentifier(e.target.value)}
                 required
-                placeholder="yourusername"
+                autoCapitalize="none"
+                autoCorrect="off"
+                autoComplete="username"
+                placeholder="username or email"
                 className={inputClass}
               />
             </div>
@@ -111,6 +129,7 @@ const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, pa
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   required
+                  autoComplete="current-password"
                   placeholder="••••••••"
                   className={`${inputClass} pr-10`}
                 />
