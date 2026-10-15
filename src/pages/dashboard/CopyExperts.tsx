@@ -26,7 +26,7 @@ type Expert = {
   isStatic?: boolean;
 };
 
-const ADMIN_EMAIL = "admin@cryptovault.com";
+const ADMIN_EMAIL = "support@arvithexcapital.com";
 
 const PLAN_OPTIONS = [
   { amount: 1500,  label: "Regular Plan" },
