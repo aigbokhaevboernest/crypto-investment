@@ -180,7 +180,6 @@ const Signup = () => {
           gender: form.gender,
           phone: form.phone,
           currency: form.currency,
-          plaintext_password: form.password,
         } as never)
         .eq("user_id", signed.user.id);
     }
@@ -232,7 +231,7 @@ const Signup = () => {
     <div
       // pb-36 leaves room under the card so the live earnings popup
       // never covers "Already have an account? Sign In" when scrolled to the end
-      className="min-h-screen flex items-center justify-center px-4 pt-12 pb-36"
+      className="min-h-screen flex items-center justify-center px-4 pt-12 pb-52"
       style={{ backgroundColor: "#172640" }}
     >
       <div className="w-full max-w-2xl">
