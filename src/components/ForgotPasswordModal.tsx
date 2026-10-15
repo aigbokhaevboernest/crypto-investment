@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const BRAND = "Arvithex Capital Alliance";
-const RESEND_SECONDS = 45;
+const RESEND_SECONDS = 60;
 
 /**
  * All reset logic runs in the `password-reset` edge function.
@@ -61,9 +61,21 @@ export const ForgotPasswordModal = ({ open, onOpenChange }: Props) => {
   const close = () => { reset(); onOpenChange(false); };
 
   const requestCode = async () => {
-    await callReset({ action: "request", email: email.trim() });
-    setCooldown(RESEND_SECONDS);
-  };
+  const { data, error } = await supabase.functions.invoke("send-reset-code", {
+    body: { email: email.trim() },
+  });
+  if (error) {
+    let msg = "Network error. Please try again.";
+    try {
+      const body = await (error as any).context?.json?.();
+      if (body?.error) msg = body.error;
+    } catch { /* keep default message */ }
+    throw new Error(msg);
+  }
+  if (!data?.success) throw new Error(data?.error || "Could not send code. Please try again.");
+  setCooldown(RESEND_SECONDS);
+};
+
 
   // Step 1 — request code
   const submitEmail = async (e: React.FormEvent) => {
