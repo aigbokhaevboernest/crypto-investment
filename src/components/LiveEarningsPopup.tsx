@@ -49,7 +49,7 @@ export const LiveEarningsPopup = () => {
       `}</style>
       <div
         key={item.id}
-        className="fixed bottom-6 left-6 z-50"
+        className="fixed bottom-28 left-4"
         style={{ animation: "earnings-slide-up 400ms ease-out both" }}
       >
         <div
