@@ -68,7 +68,7 @@ const Login = () => {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center px-4 py-12"
+      className="min-h-screen flex items-center justify-center px-4 pt-12 pb-52"
       style={{ backgroundColor: "#172640" }}
     >
       <div className="w-full max-w-md">
