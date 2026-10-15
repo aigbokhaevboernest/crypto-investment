@@ -1,6 +1,6 @@
 import { AlertOctagon } from "lucide-react";
 
-const SUPPORT_EMAIL = "support@cryptovault.com";
+const SUPPORT_EMAIL = "support@arvithexcapital.com";
 
 export const SuspendedBanner = ({ full = false }: { full?: boolean }) => (
   <div
