@@ -19,7 +19,7 @@ export const FAQ = () => (
 
 export const Terms = () => (
   <MarketingPage title="Terms & Privacy" intro="Last updated June 2026.">
-    <p>By using CryptoVault you agree to be bound by these Terms. Crypto investments are volatile and may lose value. You are responsible for the security of your own wallet credentials.</p>
+    <p>By using Arvithex Capital Alliance you agree to be bound by these Terms. Crypto investments are volatile and may lose value. You are responsible for the security of your own wallet credentials.</p>
     <p>We collect only the information needed to operate the platform and comply with applicable AML/KYC regulations. We never sell your data.</p>
     <p>Disputes are resolved by binding arbitration in the jurisdiction of incorporation.</p>
   </MarketingPage>
