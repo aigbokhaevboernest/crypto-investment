@@ -9,9 +9,9 @@ import { toast } from "sonner";
 import { Copy, Upload, CheckCircle2, Loader2 } from "lucide-react";
 
 const WALLETS = {
-  BTC:  { addr: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", color: "#F7931A" },
-  ETH:  { addr: "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1", color: "#627EEA" },
-  USDT: { addr: "TEXcRoAo9pH3KXqvNqU8M7C8q3F5z2bF4d",        color: "#26A17B" },
+  BTC:  { addr: "bc1qktwnakauyewk9s39vk7d0dr6lkmpdn3u94uwcn", color: "#F7931A" },
+  ETH:  { addr: "0x018f663B1fD13e45131B0f71CF611CDE980DC618", color: "#627EEA" },
+  USDT: { addr: "TEbVanagXRzdnE3NVdnoWKb85XSQNEj9wL",        color: "#26A17B" },
 } as const;
 
 type Method = keyof typeof WALLETS;
