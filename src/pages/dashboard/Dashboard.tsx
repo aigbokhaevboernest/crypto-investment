@@ -142,7 +142,7 @@ const Dashboard = () => {
         <h1 className="text-2xl md:text-3xl font-black text-white mt-1">
           {loadingProfile && !p ? <span className="inline-block h-7 w-40 skeleton-shimmer rounded" /> : (firstName || "Trader") + "."}
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">Here's a snapshot of your portfolio.</p>
+        <p className="text-sm text-muted-foreground mt-1">Your investment overview at a glance.</p>
       </div>
 
       {showLowSignal && (
