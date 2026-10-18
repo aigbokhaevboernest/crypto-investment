@@ -1,77 +1,183 @@
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-const KEY = "tv:last-activity";
-const FORCE = "tv:force-logout";
-const EVENTS = [
-  "mousemove", "mousedown", "click", "scroll", "keydown",
-  "touchstart", "touchmove", "pointerdown",
-] as const;
+const TIMEOUT_MS = 1 * 60 * 1000; // 2 minutes (testing only)
+const LAST_ACTIVITY_KEY = "tv:last-activity";
+const FORCE_LOGOUT_KEY = "tv:force-logout";
+const WRITE_THROTTLE_MS = 5000;
 
-const clearAuth = () => {
+const AUTH_STORAGE_PATTERNS = [/supabase\.auth/i, /^sb-.*-auth-token$/i, /^sb-.*-code-verifier$/i];
+const isAuthStorageKey = (key: string) => AUTH_STORAGE_PATTERNS.some((p) => p.test(key));
+
+const clearIdleKeys = () => {
   try {
-    [localStorage, sessionStorage].forEach((s) => {
-      for (let i = s.length - 1; i >= 0; i--) {
-        const k = s.key(i);
-        if (k && (/supabase\.auth/i.test(k) || /^sb-.*-auth-token$/i.test(k))) {
-          s.removeItem(k);
-        }
-      }
-    });
-    document.cookie.split(";").forEach((c) => {
-      const name = c.split("=")[0].trim();
-      if (/supabase|^sb-/i.test(name)) {
-        document.cookie = `${name}=; Max-Age=0; path=/`;
-      }
-    });
-  } catch {}
+    localStorage.removeItem(LAST_ACTIVITY_KEY);
+    localStorage.removeItem(FORCE_LOGOUT_KEY);
+  } catch {
+    /* ignore */
+  }
 };
 
-export const useIdleLogout = (timeoutMs = 30 * 60 * 1000) => {
+const clearAuthStorage = () => {
+  [window.localStorage, window.sessionStorage].forEach((storage) => {
+    const keys: string[] = [];
+    for (let i = 0; i < storage.length; i += 1) {
+      const key = storage.key(i);
+      if (key) keys.push(key);
+    }
+    keys.forEach((key) => {
+      if (isAuthStorageKey(key)) storage.removeItem(key);
+    });
+  });
+  clearIdleKeys();
+};
+
+const clearAuthCookies = () => {
+  document.cookie.split(";").forEach((cookie) => {
+    const name = cookie.split("=")[0]?.trim();
+    if (!name || !isAuthStorageKey(name)) return;
+    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax`;
+    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+  });
+};
+
+let loggingOut = false;
+
+/**
+ * The ONE logout path. Used by the Logout buttons AND by idle expiry.
+ * Signs out, wipes auth + idle keys, then hard-navigates to /login
+ * (a full reload avoids races with GuestOnly bouncing back to /dashboard).
+ */
+export async function performLogout() {
+  if (loggingOut) return;
+  loggingOut = true;
+
+  try {
+    localStorage.setItem(FORCE_LOGOUT_KEY, String(Date.now())); // tells other tabs
+  } catch {
+    /* ignore */
+  }
+
+  try {
+    // Don't let a dead network hang the logout forever.
+    await Promise.race([
+      supabase.auth.signOut({ scope: "global" }),
+      new Promise((resolve) => setTimeout(resolve, 3000)),
+    ]);
+  } catch {
+    /* ignore */
+  }
+
+  clearAuthStorage();
+  clearAuthCookies();
+  window.location.replace("/login");
+}
+
+/**
+ * Mount ONCE at app root (see AutoLogoutBridge). Not per page.
+ * enabled = a user is logged in; loading = auth still resolving.
+ */
+export function useAutoLogout(enabled: boolean, loading: boolean) {
   useEffect(() => {
-    const stamp = () => {
-      try { localStorage.setItem(KEY, Date.now().toString()); } catch {}
+    // While auth is resolving, do nothing (otherwise a page refresh would
+    // look like "logged out" and wipe the idle clock).
+    if (loading) return;
+
+    // Logged out: make sure no stale timestamp survives to the next login.
+    if (!enabled) {
+      clearIdleKeys();
+      return;
+    }
+
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let lastWrite = 0;
+
+    const getLast = (): number => {
+      try {
+        const raw = localStorage.getItem(LAST_ACTIVITY_KEY);
+        const n = raw ? Number(raw) : NaN;
+        return Number.isFinite(n) ? n : NaN;
+      } catch {
+        return NaN;
+      }
     };
 
-    const expire = async () => {
-      try { localStorage.setItem(FORCE, "1"); } catch {}
-      try { await supabase.auth.signOut({ scope: "global" }); } catch {}
-      clearAuth();
-      window.location.replace("/login");
+    const setLast = (v: number) => {
+      try {
+        localStorage.setItem(LAST_ACTIVITY_KEY, String(v));
+      } catch {
+        /* ignore */
+      }
     };
 
+    // Recompute against the stored deadline. Never grants new time.
     const check = () => {
-      let last = 0;
-      try { last = Number(localStorage.getItem(KEY) || 0); } catch {}
-      if (!last) { stamp(); return; }
-      if (Date.now() - last > timeoutMs) expire();
+      const last = getLast();
+      if (Number.isNaN(last)) {
+        setLast(Date.now());
+        arm(TIMEOUT_MS);
+        return;
+      }
+      const remaining = TIMEOUT_MS - (Date.now() - last);
+      if (remaining <= 0) {
+        performLogout();
+        return;
+      }
+      arm(remaining);
+    };
+
+    const arm = (ms: number) => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(check, ms);
+    };
+
+    // Real interaction only. No mousemove / pointermove / touchmove:
+    // those fire constantly and kept sessions alive forever.
+    const onActivity = () => {
+      const now = Date.now();
+      const last = getLast();
+      // If the window already expired (e.g. device just woke up), a tap must
+      // NOT revive the session.
+      if (!Number.isNaN(last) && now - last >= TIMEOUT_MS) {
+        performLogout();
+        return;
+      }
+      if (now - lastWrite < WRITE_THROTTLE_MS) return;
+      lastWrite = now;
+      setLast(now);
+      arm(TIMEOUT_MS);
     };
 
     const onStorage = (e: StorageEvent) => {
-      if (e.key === FORCE && e.newValue === "1") {
-        clearAuth();
+      if (e.key === FORCE_LOGOUT_KEY && e.newValue) {
+        clearAuthStorage();
+        clearAuthCookies();
         window.location.replace("/login");
+      } else if (e.key === LAST_ACTIVITY_KEY) {
+        check();
       }
     };
 
-    // On tab becoming visible again, CHECK idle time instead of
-    // blindly re-stamping — otherwise backgrounding the tab and
-    // returning after 30+ min never triggers logout.
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") check();
-    };
+    const events: (keyof WindowEventMap)[] = ["mousedown", "keydown", "touchstart", "scroll", "click", "wheel"];
 
-    stamp();
-    EVENTS.forEach((ev) => window.addEventListener(ev, stamp, { passive: true }));
-    document.addEventListener("visibilitychange", onVisibility);
+    // Fresh login => key was cleared while logged out, so this starts a new
+    // window. A returning session with an old key is checked, not refreshed.
+    check();
+
+    events.forEach((ev) => window.addEventListener(ev, onActivity, { passive: true }));
     window.addEventListener("storage", onStorage);
-    const heartbeat = window.setInterval(check, 15_000);
+    // Wake / tab-switch: recheck only, never reset.
+    document.addEventListener("visibilitychange", check);
+    window.addEventListener("focus", check);
+    const heartbeat = setInterval(check, 15000);
 
     return () => {
-      EVENTS.forEach((ev) => window.removeEventListener(ev, stamp));
-      document.removeEventListener("visibilitychange", onVisibility);
+      if (timer) clearTimeout(timer);
+      clearInterval(heartbeat);
+      events.forEach((ev) => window.removeEventListener(ev, onActivity));
       window.removeEventListener("storage", onStorage);
-      window.clearInterval(heartbeat);
+      document.removeEventListener("visibilitychange", check);
+      window.removeEventListener("focus", check);
     };
-  }, [timeoutMs]);
-};
+  }, [enabled, loading]);
+}
