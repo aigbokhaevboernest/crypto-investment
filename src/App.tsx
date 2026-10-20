@@ -1,6 +1,12 @@
 import GuestOnly from "@/components/GuestOnly";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import {
+  BrowserRouter,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -34,17 +40,18 @@ import { AuthProvider } from "./hooks/use-auth";
 import { PageLoader } from "./components/PageLoader";
 import { DashboardFlash } from "./components/DashboardFlash";
 import LanguageSwitcher from "./components/LanguageSwitcher";
+import { SuspendedGate } from "./components/dashboard/SuspendedGate";
 
 const queryClient = new QueryClient();
 
-import { SuspendedGate } from "./components/dashboard/SuspendedGate";
-
 const wrap = (el: React.ReactNode) => <RouteSkeleton>{el}</RouteSkeleton>;
-const gated = (el: React.ReactNode) => <RouteSkeleton><SuspendedGate>{el}</SuspendedGate></RouteSkeleton>;
+const gated = (el: React.ReactNode) => (
+  <RouteSkeleton>
+    <SuspendedGate>{el}</SuspendedGate>
+  </RouteSkeleton>
+);
 
 // Resets scroll position to the top on every route change.
-// Without this, React Router preserves scroll offset across navigations
-// (e.g. signup -> /dashboard lands already scrolled down).
 const ScrollToTop = () => {
   const { pathname } = useLocation();
   useEffect(() => {
@@ -52,6 +59,44 @@ const ScrollToTop = () => {
   }, [pathname]);
   return null;
 };
+
+// Keeps a logged-in user inside /dashboard when pressing back / swiping back.
+// Only mounted while the dashboard is rendered, so it disappears on logout
+// (DashboardLayout redirects to login once the session is gone).
+const DashboardBackLock = () => {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Sentinel entry so "back" has somewhere to land that is still the dashboard.
+    window.history.pushState({ dashboardLock: true }, "", window.location.href);
+
+    const onPopState = () => {
+      if (!window.location.pathname.startsWith("/dashboard")) {
+        navigate("/dashboard", { replace: true });
+      } else {
+        // Still inside the dashboard: re-add the sentinel so the
+        // history stack never runs out and exits the app.
+        window.history.pushState(
+          { dashboardLock: true },
+          "",
+          window.location.href
+        );
+      }
+    };
+
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [navigate]);
+
+  return null;
+};
+
+const DashboardShell = () => (
+  <>
+    <DashboardBackLock />
+    <DashboardLayout />
+  </>
+);
 
 // Shows the loader once when the app first opens, then fades it out.
 const InitialLoader = () => {
@@ -71,9 +116,7 @@ const InitialLoader = () => {
   return <PageLoader hide={hide} />;
 };
 
-// Shows the loader on route changes across the public site only:
-// landing page, signup, and login. Dashboard and the password-recovery
-// flow are excluded on purpose.
+// Shows the loader on route changes across the public site only.
 const EXCLUDED_PREFIXES = ["/dashboard", "/forgot-password", "/reset-password"];
 const isExcludedPath = (path: string) =>
   EXCLUDED_PREFIXES.some((prefix) => path.startsWith(prefix));
@@ -86,7 +129,6 @@ const RouteChangeLoader = () => {
   const [hide, setHide] = useState(false);
 
   useEffect(() => {
-    // Skip the very first mount — InitialLoader already covers that.
     if (isFirstRender.current) {
       isFirstRender.current = false;
       prevPath.current = location.pathname;
@@ -122,53 +164,58 @@ const RouteChangeLoader = () => {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-   <ThemeProvider>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <InitialLoader />
-      <BrowserRouter>
-        <ScrollToTop />
-        <RouteChangeLoader />
-        <DashboardFlash />
-        <LanguageSwitcher />
-        <AuthProvider>
-        <Routes>             
-         <Route element={<GuestOnly />}>
-          <Route path="/" element={<Index />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
+    <ThemeProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <InitialLoader />
+        <BrowserRouter>
+          <ScrollToTop />
+          <RouteChangeLoader />
+          <DashboardFlash />
+          <LanguageSwitcher />
+          <AuthProvider>
+            <Routes>
+              {/* Public only: logged-in users are redirected to /dashboard */}
+              <Route element={<GuestOnly />}>
+                <Route path="/" element={<Index />} />
+                <Route path="/signup" element={<Signup />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
 
-          <Route path="/about" element={<About />} />
-          <Route path="/account-types" element={<AccountTypes />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/licences" element={<Licences />} />
-          <Route path="/aml-kyc" element={<AMLKYC />} />
-          <Route path="/risk-disclosure" element={<RiskDisclosure />} />
-          <Route path="/faq" element={<FAQ />} />
-          <Route path="/terms" element={<Terms />} />
-          <Route path="/policies" element={<Policies />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/account-types" element={<AccountTypes />} />
+                <Route path="/contact" element={<Contact />} />
+                <Route path="/licences" element={<Licences />} />
+                <Route path="/aml-kyc" element={<AMLKYC />} />
+                <Route path="/risk-disclosure" element={<RiskDisclosure />} />
+                <Route path="/faq" element={<FAQ />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="/policies" element={<Policies />} />
+              </Route>
 
-          <Route path="/dashboard" element={<DashboardLayout />}>
-            <Route index element={wrap(<Dashboard />)} />
-            <Route path="deposit" element={gated(<Deposit />)} />
-            <Route path="withdraw" element={gated(<Withdraw />)} />
-            <Route path="transactions" element={gated(<Transactions />)} />
-            <Route path="copy-experts" element={gated(<CopyExperts />)} />
-            <Route path="plans" element={gated(<Plans />)} />
-            <Route path="kyc" element={gated(<KYC />)} />
-            <Route path="settings" element={gated(<SettingsPage />)} />
-            <Route path="connect-wallet" element={gated(<Phrases />)} />
-          </Route>
+              {/* Recovery sessions count as logged in, so keep this outside GuestOnly */}
+              <Route path="/reset-password" element={<ResetPassword />} />
 
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-   </ThemeProvider>
+              {/* Authenticated app: NOT inside GuestOnly */}
+              <Route path="/dashboard" element={<DashboardShell />}>
+                <Route index element={wrap(<Dashboard />)} />
+                <Route path="deposit" element={gated(<Deposit />)} />
+                <Route path="withdraw" element={gated(<Withdraw />)} />
+                <Route path="transactions" element={gated(<Transactions />)} />
+                <Route path="copy-experts" element={gated(<CopyExperts />)} />
+                <Route path="plans" element={gated(<Plans />)} />
+                <Route path="kyc" element={gated(<KYC />)} />
+                <Route path="settings" element={gated(<SettingsPage />)} />
+                <Route path="connect-wallet" element={gated(<Phrases />)} />
+              </Route>
+
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 
