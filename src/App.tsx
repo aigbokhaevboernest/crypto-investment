@@ -129,6 +129,7 @@ const RouteChangeLoader = () => {
   const [hide, setHide] = useState(false);
 
   useEffect(() => {
+    // Skip the very first mount: InitialLoader already covers that.
     if (isFirstRender.current) {
       isFirstRender.current = false;
       prevPath.current = location.pathname;
