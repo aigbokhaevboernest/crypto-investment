@@ -132,7 +132,9 @@ const App = () => (
         <DashboardFlash />
         <LanguageSwitcher />
         <AuthProvider>
-        <Routes>
+        <Routes
+             
+         <Route element={<GuestOnly />}>
           <Route path="/" element={<Index />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/login" element={<Login />} />
