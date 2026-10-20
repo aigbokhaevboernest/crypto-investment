@@ -1,28 +1,17 @@
 import { Navigate, Outlet } from "react-router-dom";
-import { Loader2 } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/use-auth";
 
-/**
- * Layout route for PUBLIC pages (home, login, signup, FAQ, ...).
- *
- * A logged-in user can't stay on these: they are sent to /dashboard with
- * `replace`, so Back / swipe-back never lands on (or oscillates with) a
- * public page. /dashboard's ProtectedRoute then sends them to /pin first if
- * the PIN hasn't been entered yet.
- */
-export default function GuestOnly() {
-  const auth = useAuth() as any;
-  const user = auth.user;
-  const loading: boolean = auth.loading ?? auth.isLoading ?? false;
+const GuestOnly = () => {
+  const { user, loading } = useAuth();
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-      </div>
-    );
-  }
+  if (loading) return null;
 
+  // Logged in: public pages are off limits. `replace` removes the
+  // public page from history so back/swipe can't return to it.
   if (user) return <Navigate to="/dashboard" replace />;
+
   return <Outlet />;
-}
+};
+
+export default GuestOnly;
+u
