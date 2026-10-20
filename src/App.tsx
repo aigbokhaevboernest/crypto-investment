@@ -1,3 +1,4 @@
+import GuestOnly from "@/components/GuestOnly";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
