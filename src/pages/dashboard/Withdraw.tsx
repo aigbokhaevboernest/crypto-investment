@@ -33,6 +33,8 @@ export default function Withdraw() {
   const [balance, setBalance] = useState<number | null>(null);
   const [defaultCode, setDefaultCode] = useState<string | null>(null);
 
+  const firstName = user?.user_metadata?.full_name?.split(" ")[0] ?? "";
+
   // Load currency preference
   useEffect(() => {
     if (!user) return;
@@ -272,7 +274,7 @@ export default function Withdraw() {
         }
       }
 
-            setVerifying(false);
+      setVerifying(false);
       setAuthOpen(false);
       setPendingTxId(null);
       setPendingTxAmount(null);
@@ -283,13 +285,18 @@ export default function Withdraw() {
         supabase.functions.invoke("send-email", {
           body: {
             to: user.email,
+            first_name: firstName,
             subject: "Withdrawal request received",
             message: `We've received your withdrawal request for ${symbol}${amountToDeduct.toLocaleString()}. It's now under final review and you'll be notified once it's processed.`,
           },
         });
       }
     } else {
-
+      setStepIndex(nextIdx);
+      setVerifying(false);
+      toast.success(`${STEP_META[currentType].title} accepted.`);
+    }
+  };
 
   // User closes modal without completing verification.
   // Tx was already created as "cancelled" so no DB update needed.
