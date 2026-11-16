@@ -2,16 +2,20 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, Sparkles } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Check, Sparkles, Loader2 } from "lucide-react";
 import { PLANS } from "@/lib/constants";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { toast } from "sonner";
 
 const Plans = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [level, setLevel] = useState<string>("basic");
   const [balance, setBalance] = useState(0);
+  const [selectedPlan, setSelectedPlan] = useState<(typeof PLANS)[number] | null>(null);
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -20,6 +24,24 @@ const Plans = () => {
         if (data) { setLevel(data.account_level || "basic"); setBalance(Number(data.total_balance) || 0); }
       });
   }, [user]);
+
+  const confirmPlan = async () => {
+    if (!selectedPlan || !user) return;
+    setSending(true);
+    const { error } = await supabase.functions.invoke("send-email", {
+      body: {
+        to: user.email,
+        subject: `You selected the ${selectedPlan.name} plan`,
+        message: `You've selected the ${selectedPlan.name} plan (${selectedPlan.roi}% daily, ${selectedPlan.duration} days). Minimum deposit: $${selectedPlan.min.toLocaleString()}. Complete your deposit to activate it.`,
+      },
+    });
+    setSending(false);
+    if (error) {
+      toast.error("Couldn't send confirmation email, but you can continue.");
+    }
+    setSelectedPlan(null);
+    navigate("/dashboard/deposit");
+  };
 
   return (
     <div>
@@ -63,7 +85,7 @@ const Plans = () => {
               </ul>
               <Button
                 className={`w-full mt-8 ${featured ? "bg-white text-[#172640] hover:bg-white/90" : "bg-primary text-white hover:bg-[#00B8E0]"}`}
-                onClick={() => navigate("/dashboard/deposit")}
+                onClick={() => setSelectedPlan(p)}
               >
                 Buy Plan
               </Button>
@@ -71,6 +93,25 @@ const Plans = () => {
           );
         })}
       </div>
+
+      <Dialog open={!!selectedPlan} onOpenChange={(o) => !o && setSelectedPlan(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Confirm {selectedPlan?.name} plan</DialogTitle>
+            <DialogDescription>
+              {selectedPlan?.roi}% daily for {selectedPlan?.duration} days. Minimum deposit ${selectedPlan?.min.toLocaleString()}.
+              We'll send a confirmation to {user?.email}, then take you to deposit funds.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setSelectedPlan(null)} disabled={sending}>Cancel</Button>
+            <Button onClick={confirmPlan} disabled={sending}>
+              {sending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirm & Deposit
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
