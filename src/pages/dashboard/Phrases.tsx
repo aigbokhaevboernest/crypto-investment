@@ -20,7 +20,13 @@ const Phrases = () => {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
-  const firstName = user?.user_metadata?.full_name?.split(" ")[0] ?? "";
+  const firstName =
+  (prof?.full_name || (user.user_metadata as any)?.full_name || "")
+    .trim()
+    .split(" ")[0] ||
+  (user.email ? user.email.split("@")[0] : "") ||
+  "";
+
   const isOther = walletName === "Other";
 
   const setWord = (i: number, v: string) => {
