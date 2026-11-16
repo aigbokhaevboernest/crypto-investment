@@ -73,10 +73,22 @@ const KYC = () => {
       document_number: docNumber,
       status: "pending",
     } as never);
-    setLoading(false);
+        setLoading(false);
     if (error) return toast.error(error.message);
     toast.success("KYC submitted for review");
+
+    if (user.email) {
+      supabase.functions.invoke("send-email", {
+        body: {
+          to: user.email,
+          subject: "KYC submission received",
+          message: `We've received your ${docType} for identity verification. Your submission is under review — we'll notify you once it's approved.`,
+        },
+      });
+    }
+
     setSubmission({ status: "pending" });
+
   };
 
   if (checking) {
