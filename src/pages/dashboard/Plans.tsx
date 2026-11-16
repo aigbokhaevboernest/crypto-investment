@@ -95,14 +95,14 @@ const Plans = () => {
       </div>
 
       <Dialog open={!!selectedPlan} onOpenChange={(o) => !o && setSelectedPlan(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Confirm {selectedPlan?.name} plan</DialogTitle>
-            <DialogDescription>
-              {selectedPlan?.roi}% daily for {selectedPlan?.duration} days. Minimum deposit ${selectedPlan?.min.toLocaleString()}.
-              We'll send a confirmation to {user?.email}, then take you to deposit funds.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-sm rounded-2xl">
+  <DialogHeader>
+    <DialogTitle>Confirm {selectedPlan?.name} plan</DialogTitle>
+    <DialogDescription>
+      {selectedPlan?.roi}% daily for {selectedPlan?.duration} days. Minimum deposit ${selectedPlan?.min.toLocaleString()}.
+    </DialogDescription>
+  </DialogHeader>
+
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setSelectedPlan(null)} disabled={sending}>Cancel</Button>
             <Button onClick={confirmPlan} disabled={sending}>
