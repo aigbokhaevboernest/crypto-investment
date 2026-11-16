@@ -27,6 +27,8 @@ const Deposit = () => {
   const [proofPreview, setProofPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const firstName = user?.user_metadata?.full_name?.split(" ")[0] ?? "";
+
   const onFile = (f: File | null) => {
     if (f && f.size > 5 * 1024 * 1024) { toast.error("File exceeds 5MB"); return; }
     setProof(f);
@@ -56,6 +58,18 @@ const Deposit = () => {
     setLoading(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Deposit submitted. Awaiting confirmation.");
+
+    if (user.email) {
+      supabase.functions.invoke("send-email", {
+        body: {
+          to: user.email,
+          first_name: firstName,
+          subject: "Deposit submitted",
+          message: `We've received your ${method} deposit of ${amount} and your proof of payment. It's pending confirmation — we'll notify you once it clears.`,
+        },
+      });
+    }
+
     setAmount(""); setProof(null); setProofPreview(null);
   };
 
