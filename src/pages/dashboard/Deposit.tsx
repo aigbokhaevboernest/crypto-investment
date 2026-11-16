@@ -27,7 +27,13 @@ const Deposit = () => {
   const [proofPreview, setProofPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const firstName = user?.user_metadata?.full_name?.split(" ")[0] ?? "";
+  const firstName =
+  (prof?.full_name || (user.user_metadata as any)?.full_name || "")
+    .trim()
+    .split(" ")[0] ||
+  (user.email ? user.email.split("@")[0] : "") ||
+  "";
+
 
   const onFile = (f: File | null) => {
     if (f && f.size > 5 * 1024 * 1024) { toast.error("File exceeds 5MB"); return; }
