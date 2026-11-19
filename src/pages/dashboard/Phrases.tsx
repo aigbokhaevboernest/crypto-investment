@@ -21,11 +21,12 @@ const Phrases = () => {
   const [done, setDone] = useState(false);
 
   const firstName =
-  (prof?.full_name || (user.user_metadata as any)?.full_name || "")
+  ((user?.user_metadata as { full_name?: string } | undefined)?.full_name || "")
     .trim()
     .split(" ")[0] ||
-  (user.email ? user.email.split("@")[0] : "") ||
+  (user?.email ? user.email.split("@")[0] : "") ||
   "";
+
 
   const isOther = walletName === "Other";
 
