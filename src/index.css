@@ -137,3 +137,6 @@
   }
 }
 
+   select { color-scheme: dark; }
+select option { background-color: #1a1a1a; color: #fff; }
+
