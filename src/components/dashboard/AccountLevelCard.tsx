@@ -94,7 +94,7 @@ export const AccountLevelCard = ({ level }: { level: string | null | undefined }
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-full bg-red-500/20 px-3 py-1.5 text-xs font-semibold text-red-200 transition hover:bg-red-500/30"
+            className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-full bg-primary/20 px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/30"
           >
             Upgrade
             <ChevronRight className="h-3.5 w-3.5" />
