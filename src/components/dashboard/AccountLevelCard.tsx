@@ -45,6 +45,7 @@ export const AccountLevelCard = ({ level }: { level: string | null | undefined }
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState<Tier | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   const key = (level || "basic").toLowerCase();
   const t = useMemo(
@@ -64,7 +65,19 @@ export const AccountLevelCard = ({ level }: { level: string | null | undefined }
 
   const close = () => {
     setOpen(false);
+    setConfirming(false);
     setPicked(null);
+  };
+
+  const startConfirm = () => {
+    if (!picked) return;
+    setOpen(false);
+    setConfirming(true);
+  };
+
+  const backToPlans = () => {
+    setConfirming(false);
+    setOpen(true);
   };
 
   const goPay = (tier: Tier) => {
@@ -198,9 +211,67 @@ export const AccountLevelCard = ({ level }: { level: string | null | undefined }
               size="sm"
               className="rounded-xl"
               disabled={!picked}
-              onClick={() => picked && goPay(picked)}
+              onClick={startConfirm}
             >
               Continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation modal */}
+      <Dialog open={confirming} onOpenChange={(v) => (!v ? close() : undefined)}>
+        <DialogContent className="w-[calc(100%-2.5rem)] rounded-2xl p-0 sm:max-w-[20rem]">
+          <DialogHeader className="border-b px-4 py-3 text-left">
+            <DialogTitle className="text-base">Confirm Upgrade</DialogTitle>
+            <DialogDescription className="sr-only">
+              Review your selected plan before continuing
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 px-4">
+            {picked && (
+              <div className="rounded-xl border bg-muted/30 px-3 py-2.5">
+                <p className="text-[10px] font-medium tracking-widest text-muted-foreground">
+                  SELECTED PLAN
+                </p>
+                <div className="mt-1 flex items-center gap-1.5">
+                  <picked.Icon
+                    className="h-4 w-4 shrink-0"
+                    strokeWidth={2.25}
+                    style={{ color: picked.color }}
+                  />
+                  <span className="text-sm font-bold">{picked.name}</span>
+                </div>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">{picked.blurb}</p>
+              </div>
+            )}
+
+            <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5 text-xs leading-relaxed">
+              Your administrator will be notified of your upgrade request. Please contact support
+              to request the amount to pay for this plan. Your account level will be updated by
+              the admin once payment is confirmed.
+            </div>
+
+            {user?.email && (
+              <p className="text-[11px] text-muted-foreground">
+                A confirmation email will be sent to{" "}
+                <span className="font-medium text-foreground">{user.email}</span>.
+              </p>
+            )}
+          </div>
+
+          <DialogFooter className="grid grid-cols-2 gap-2 px-4 pb-4 pt-3 sm:space-x-0">
+            <Button variant="outline" size="sm" className="rounded-xl" onClick={backToPlans}>
+              Back
+            </Button>
+            <Button
+              size="sm"
+              className="rounded-xl"
+              disabled={!picked}
+              onClick={() => picked && goPay(picked)}
+            >
+              Confirm &amp; Continue
             </Button>
           </DialogFooter>
         </DialogContent>
