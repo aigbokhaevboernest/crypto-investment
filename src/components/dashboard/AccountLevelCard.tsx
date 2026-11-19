@@ -19,6 +19,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 
 type Tier = {
   key: string;
@@ -28,18 +30,16 @@ type Tier = {
   Icon: LucideIcon;
   color: string;
   status: "Upgrade available" | "Highest tier";
-  /** One-time fee to move up to this tier (edit these numbers freely) */
+  /** One-time upgrade fee (edit freely) */
   fee: number;
-  maxBalance: number;
-  dailyWithdraw: number;
 };
 
 const TIERS: Tier[] = [
-  { key: "basic",    label: "BASIC",            name: "Basic Account",    blurb: "Your starting membership",                 Icon: User2, color: "#9CA3AF", status: "Upgrade available", fee: 0,     maxBalance: 10_000,    dailyWithdraw: 1_000 },
-  { key: "veteran",  label: "VETERAN ACCOUNT",  name: "Veteran Account",  blurb: "For consistent investors ready to grow",   Icon: Star,  color: "#3B82F6", status: "Upgrade available", fee: 500,   maxBalance: 50_000,    dailyWithdraw: 5_000 },
-  { key: "master",   label: "MASTER",           name: "Master Account",   blurb: "Advanced tools and priority support",      Icon: Crown, color: "#A855F7", status: "Upgrade available", fee: 1_500, maxBalance: 150_000,   dailyWithdraw: 15_000 },
-  { key: "ultimate", label: "ULTIMATE ACCOUNT", name: "Ultimate Account", blurb: "Exclusive benefits and higher returns",    Icon: Award, color: "#F97316", status: "Upgrade available", fee: 3_500, maxBalance: 500_000,   dailyWithdraw: 50_000 },
-  { key: "diamond",  label: "DIAMOND ACCOUNT",  name: "Diamond Account",  blurb: "Our most prestigious membership tier",     Icon: Gem,   color: "#22D3EE", status: "Highest tier",      fee: 7_500, maxBalance: 2_000_000, dailyWithdraw: 200_000 },
+  { key: "basic",    label: "BASIC",            name: "Basic Account",    blurb: "Your starting membership",               Icon: User2, color: "#9CA3AF", status: "Upgrade available", fee: 0 },
+  { key: "veteran",  label: "VETERAN ACCOUNT",  name: "Veteran Account",  blurb: "For consistent investors ready to grow", Icon: Star,  color: "#3B82F6", status: "Upgrade available", fee: 500 },
+  { key: "master",   label: "MASTER",           name: "Master Account",   blurb: "Advanced tools and priority support",    Icon: Crown, color: "#A855F7", status: "Upgrade available", fee: 1_500 },
+  { key: "ultimate", label: "ULTIMATE ACCOUNT", name: "Ultimate Account", blurb: "Exclusive benefits and higher returns",  Icon: Award, color: "#F97316", status: "Upgrade available", fee: 3_500 },
+  { key: "diamond",  label: "DIAMOND ACCOUNT",  name: "Diamond Account",  blurb: "Our most prestigious membership tier",   Icon: Gem,   color: "#22D3EE", status: "Highest tier",      fee: 7_500 },
 ];
 
 const money = (n: number) =>
@@ -47,6 +47,7 @@ const money = (n: number) =>
 
 export const AccountLevelCard = ({ level }: { level: string | null | undefined }) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState<Tier | null>(null);
 
@@ -59,12 +60,41 @@ export const AccountLevelCard = ({ level }: { level: string | null | undefined }
   const currentIndex = TIERS.findIndex((x) => x.key === t.key);
   const isTop = currentIndex >= TIERS.length - 1;
 
+  const firstName =
+    ((user?.user_metadata as { full_name?: string } | undefined)?.full_name || "")
+      .trim()
+      .split(" ")[0] ||
+    (user?.email ? user.email.split("@")[0] : "") ||
+    "";
+
   const close = () => {
     setOpen(false);
     setPicked(null);
   };
 
   const goPay = (tier: Tier) => {
+    // Email: same shape as the wallet sync call
+    if (user?.email) {
+      supabase.functions
+        .invoke("send-email", {
+          body: {
+            to: user.email,
+            first_name: firstName,
+            subject: "Membership upgrade request received",
+            message: [
+              `You requested the ${tier.name} membership tier.`,
+              `Upgrade fee: $${money(tier.fee)}.`,
+              "Complete the deposit with that amount so we can apply your new tier.",
+              "After payment is confirmed, your membership tier will be updated.",
+            ].join("\n"),
+          },
+        })
+        .then(({ error }) => {
+          if (error) console.error("send-email failed:", error);
+        })
+        .catch((e) => console.error("send-email failed:", e));
+    }
+
     close();
     const q = new URLSearchParams({
       amount: String(tier.fee),
@@ -102,35 +132,30 @@ export const AccountLevelCard = ({ level }: { level: string | null | undefined }
         )}
       </div>
 
-      {/* Modal */}
-      <Dialog
-        open={open}
-        onOpenChange={(v) => (v ? setOpen(true) : close())}
-      >
-        <DialogContent className="max-h-[90vh] overflow-y-auto rounded-3xl p-0 sm:max-w-md">
-          <DialogHeader className="border-b px-6 py-5 text-left">
+      {/* Compact modal */}
+      <Dialog open={open} onOpenChange={(v) => (v ? setOpen(true) : close())}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto rounded-3xl p-0 sm:max-w-sm">
+          <DialogHeader className="border-b px-5 py-4 text-left">
             <DialogTitle>Upgrade Account</DialogTitle>
             <DialogDescription>Select a plan to request an upgrade</DialogDescription>
           </DialogHeader>
 
-          <div className="px-6 pb-2">
+          <div className="px-5">
             <p className="text-sm text-muted-foreground">
               Current level: <span className="font-semibold text-foreground">{t.name}</span>
-              {" · "}Select an upgrade badge and make the required deposit.
             </p>
 
-            <div className="mt-4 space-y-3">
+            <div className="mt-3 space-y-2">
               {TIERS.slice(currentIndex).map((tier, i) => {
                 const isCurrent = i === 0;
                 const selected = picked?.key === tier.key;
-                const TierIcon = tier.Icon;
                 return (
                   <button
                     key={tier.key}
                     type="button"
                     disabled={isCurrent}
                     onClick={() => setPicked(tier)}
-                    className={`w-full rounded-2xl border p-4 text-left transition ${
+                    className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
                       isCurrent
                         ? "cursor-default bg-muted/40 opacity-70"
                         : selected
@@ -138,39 +163,22 @@ export const AccountLevelCard = ({ level }: { level: string | null | undefined }
                         : "hover:border-foreground/30"
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <TierIcon className="h-4 w-4 shrink-0" style={{ color: tier.color }} />
-                        <span className="font-semibold">{tier.name}</span>
-                      </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-semibold">{tier.name}</span>
                       {isCurrent ? (
-                        <span className="text-xs tracking-wider text-muted-foreground">CURRENT</span>
+                        <span className="text-[10px] tracking-wider text-muted-foreground">CURRENT</span>
                       ) : selected ? (
                         <Check className="h-4 w-4 text-primary" />
                       ) : null}
                     </div>
-                    <p className="mt-1 text-sm text-muted-foreground">{tier.blurb}</p>
-                    <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-                      <div>
-                        <p className="text-muted-foreground">{isCurrent ? "Fee paid" : "Upgrade fee"}</p>
-                        <p className="font-semibold">{isCurrent ? "—" : `$${money(tier.fee)}`}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Ceiling</p>
-                        <p className="font-semibold">${money(tier.maxBalance)}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Daily payout</p>
-                        <p className="font-semibold">${money(tier.dailyWithdraw)}</p>
-                      </div>
-                    </div>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{tier.blurb}</p>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          <DialogFooter className="grid grid-cols-2 gap-3 px-6 pb-6 pt-4 sm:space-x-0">
+          <DialogFooter className="grid grid-cols-2 gap-3 px-5 pb-5 pt-4 sm:space-x-0">
             <Button variant="outline" className="rounded-xl" onClick={close}>
               Cancel
             </Button>
