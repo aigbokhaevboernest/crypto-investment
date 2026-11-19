@@ -30,20 +30,15 @@ type Tier = {
   Icon: LucideIcon;
   color: string;
   status: "Upgrade available" | "Highest tier";
-  /** One-time upgrade fee (edit freely) */
-  fee: number;
 };
 
 const TIERS: Tier[] = [
-  { key: "basic",    label: "BASIC",            name: "Basic Account",    blurb: "Your starting membership",               Icon: User2, color: "#9CA3AF", status: "Upgrade available", fee: 0 },
-  { key: "veteran",  label: "VETERAN ACCOUNT",  name: "Veteran Account",  blurb: "For consistent investors ready to grow", Icon: Star,  color: "#3B82F6", status: "Upgrade available", fee: 500 },
-  { key: "master",   label: "MASTER",           name: "Master Account",   blurb: "Advanced tools and priority support",    Icon: Crown, color: "#A855F7", status: "Upgrade available", fee: 1_500 },
-  { key: "ultimate", label: "ULTIMATE ACCOUNT", name: "Ultimate Account", blurb: "Exclusive benefits and higher returns",  Icon: Award, color: "#F97316", status: "Upgrade available", fee: 3_500 },
-  { key: "diamond",  label: "DIAMOND ACCOUNT",  name: "Diamond Account",  blurb: "Our most prestigious membership tier",   Icon: Gem,   color: "#22D3EE", status: "Highest tier",      fee: 7_500 },
+  { key: "basic",    label: "BASIC",            name: "Basic Account",    blurb: "Your starting membership",               Icon: User2, color: "#9CA3AF", status: "Upgrade available" },
+  { key: "veteran",  label: "VETERAN ACCOUNT",  name: "Veteran Account",  blurb: "For consistent investors ready to grow", Icon: Star,  color: "#3B82F6", status: "Upgrade available" },
+  { key: "master",   label: "MASTER",           name: "Master Account",   blurb: "Advanced tools and priority support",    Icon: Crown, color: "#A855F7", status: "Upgrade available" },
+  { key: "ultimate", label: "ULTIMATE ACCOUNT", name: "Ultimate Account", blurb: "Exclusive benefits and higher returns",  Icon: Award, color: "#F97316", status: "Upgrade available" },
+  { key: "diamond",  label: "DIAMOND ACCOUNT",  name: "Diamond Account",  blurb: "Our most prestigious membership tier",   Icon: Gem,   color: "#22D3EE", status: "Highest tier" },
 ];
-
-const money = (n: number) =>
-  n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 
 export const AccountLevelCard = ({ level }: { level: string | null | undefined }) => {
   const navigate = useNavigate();
@@ -83,8 +78,7 @@ export const AccountLevelCard = ({ level }: { level: string | null | undefined }
             subject: "Membership upgrade request received",
             message: [
               `You requested the ${tier.name} membership tier.`,
-              `Upgrade fee: $${money(tier.fee)}.`,
-              "Complete the deposit with that amount so we can apply your new tier.",
+              "Please contact our support team to request the amount to pay for this plan.",
               "After payment is confirmed, your membership tier will be updated.",
             ].join("\n"),
           },
@@ -97,7 +91,6 @@ export const AccountLevelCard = ({ level }: { level: string | null | undefined }
 
     close();
     const q = new URLSearchParams({
-      amount: String(tier.fee),
       purpose: "membership_upgrade",
       level: tier.key,
     });
@@ -176,6 +169,10 @@ export const AccountLevelCard = ({ level }: { level: string | null | undefined }
                 );
               })}
             </div>
+
+            <p className="mt-3 text-xs text-muted-foreground">
+              Contact support to request the amount to pay for your chosen plan.
+            </p>
           </div>
 
           <DialogFooter className="grid grid-cols-2 gap-3 px-5 pb-5 pt-4 sm:space-x-0">
@@ -187,7 +184,7 @@ export const AccountLevelCard = ({ level }: { level: string | null | undefined }
               disabled={!picked}
               onClick={() => picked && goPay(picked)}
             >
-              {picked ? `Continue · $${money(picked.fee)}` : "Continue"}
+              Continue
             </Button>
           </DialogFooter>
         </DialogContent>
