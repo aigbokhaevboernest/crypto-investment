@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,12 +28,11 @@ const Deposit = () => {
   const [loading, setLoading] = useState(false);
 
   const firstName =
-  (prof?.full_name || (user.user_metadata as any)?.full_name || "")
-    .trim()
-    .split(" ")[0] ||
-  (user.email ? user.email.split("@")[0] : "") ||
-  "";
-
+    ((user?.user_metadata as { full_name?: string } | undefined)?.full_name || "")
+      .trim()
+      .split(" ")[0] ||
+    (user?.email ? user.email.split("@")[0] : "") ||
+    "";
 
   const onFile = (f: File | null) => {
     if (f && f.size > 5 * 1024 * 1024) { toast.error("File exceeds 5MB"); return; }
