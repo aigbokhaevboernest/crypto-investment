@@ -127,18 +127,18 @@ export const AccountLevelCard = ({ level }: { level: string | null | undefined }
 
       {/* Compact modal */}
       <Dialog open={open} onOpenChange={(v) => (v ? setOpen(true) : close())}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto rounded-3xl p-0 sm:max-w-sm">
-          <DialogHeader className="border-b px-5 py-4 text-left">
-            <DialogTitle>Upgrade Account</DialogTitle>
-            <DialogDescription>Select a plan to request an upgrade</DialogDescription>
+        <DialogContent className="max-h-[70vh] w-[calc(100%-2.5rem)] overflow-y-auto rounded-2xl p-0 sm:max-w-[18rem]">
+          <DialogHeader className="border-b px-4 py-3 text-left">
+            <DialogTitle className="text-base">Upgrade Account</DialogTitle>
+            <DialogDescription className="text-xs">Select a plan to request an upgrade</DialogDescription>
           </DialogHeader>
 
-          <div className="px-5">
-            <p className="text-sm text-muted-foreground">
+          <div className="px-4">
+            <p className="text-xs text-muted-foreground">
               Current level: <span className="font-semibold text-foreground">{t.name}</span>
             </p>
 
-            <div className="mt-3 space-y-2">
+            <div className="mt-2 space-y-1.5">
               {TIERS.slice(currentIndex).map((tier, i) => {
                 const isCurrent = i === 0;
                 const selected = picked?.key === tier.key;
@@ -148,7 +148,7 @@ export const AccountLevelCard = ({ level }: { level: string | null | undefined }
                     type="button"
                     disabled={isCurrent}
                     onClick={() => setPicked(tier)}
-                    className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
+                    className={`w-full rounded-xl border px-3 py-2 text-left transition ${
                       isCurrent
                         ? "cursor-default bg-muted/40 opacity-70"
                         : selected
@@ -156,30 +156,46 @@ export const AccountLevelCard = ({ level }: { level: string | null | undefined }
                         : "hover:border-foreground/30"
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="font-semibold">{tier.name}</span>
+                    <div className="flex items-center justify-between gap-2">
+                      <span
+                        className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5"
+                        style={{ backgroundColor: `${tier.color}1F` }}
+                      >
+                        <tier.Icon
+                          className="h-3.5 w-3.5 shrink-0"
+                          strokeWidth={2.25}
+                          style={{ color: tier.color }}
+                        />
+                        <span
+                          className="text-[11px] font-extrabold leading-none tracking-wide"
+                          style={{ color: tier.color }}
+                        >
+                          {tier.label}
+                        </span>
+                      </span>
                       {isCurrent ? (
                         <span className="text-[10px] tracking-wider text-muted-foreground">CURRENT</span>
                       ) : selected ? (
                         <Check className="h-4 w-4 text-primary" />
                       ) : null}
                     </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{tier.blurb}</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">{tier.blurb}</p>
                   </button>
                 );
               })}
             </div>
 
-            <p className="mt-3 text-xs text-muted-foreground">
+            <p className="mt-2 text-[11px] text-muted-foreground">
               Contact support to request the amount to pay for your chosen plan.
             </p>
           </div>
 
-          <DialogFooter className="grid grid-cols-2 gap-3 px-5 pb-5 pt-4 sm:space-x-0">
-            <Button variant="outline" className="rounded-xl" onClick={close}>
+          <DialogFooter className="grid grid-cols-2 gap-2 px-4 pb-4 pt-3 sm:space-x-0">
+            <Button variant="outline" size="sm" className="rounded-xl" onClick={close}>
               Cancel
             </Button>
             <Button
+              size="sm"
               className="rounded-xl"
               disabled={!picked}
               onClick={() => picked && goPay(picked)}
