@@ -6,7 +6,7 @@ import {
   Crown,
   Award,
   Gem,
-  ArrowUpRight,
+  ChevronRight,
   Check,
   LucideIcon,
 } from "lucide-react";
@@ -22,50 +22,50 @@ import {
 
 type Tier = {
   key: string;
-  label: string;
+  label: string; // badge text on the card
+  name: string; // name shown in the modal
+  blurb: string;
   Icon: LucideIcon;
   color: string;
-  /** One-time fee to move up to this tier (0 for the starting tier) */
+  status: "Upgrade available" | "Highest tier";
+  /** One-time fee to move up to this tier (edit these numbers freely) */
   fee: number;
   maxBalance: number;
   dailyWithdraw: number;
 };
 
-/** Fees and limits are product numbers: edit them here. Keys match account_level in the DB. */
 const TIERS: Tier[] = [
-  { key: "basic",    label: "STARTER", Icon: User2, color: "#9CA3AF", fee: 0,     maxBalance: 10_000,    dailyWithdraw: 1_000 },
-  { key: "veteran",  label: "PRO",     Icon: Star,  color: "#3B82F6", fee: 500,   maxBalance: 50_000,    dailyWithdraw: 5_000 },
-  { key: "master",   label: "ELITE",   Icon: Crown, color: "#A855F7", fee: 1_500, maxBalance: 150_000,   dailyWithdraw: 15_000 },
-  { key: "ultimate", label: "PREMIER", Icon: Award, color: "#F97316", fee: 3_500, maxBalance: 500_000,   dailyWithdraw: 50_000 },
-  { key: "diamond",  label: "LEGACY",  Icon: Gem,   color: "#22D3EE", fee: 7_500, maxBalance: 2_000_000, dailyWithdraw: 200_000 },
+  { key: "basic",    label: "BASIC",            name: "Basic Account",    blurb: "Your starting membership",                 Icon: User2, color: "#9CA3AF", status: "Upgrade available", fee: 0,     maxBalance: 10_000,    dailyWithdraw: 1_000 },
+  { key: "veteran",  label: "VETERAN ACCOUNT",  name: "Veteran Account",  blurb: "For consistent investors ready to grow",   Icon: Star,  color: "#3B82F6", status: "Upgrade available", fee: 500,   maxBalance: 50_000,    dailyWithdraw: 5_000 },
+  { key: "master",   label: "MASTER",           name: "Master Account",   blurb: "Advanced tools and priority support",      Icon: Crown, color: "#A855F7", status: "Upgrade available", fee: 1_500, maxBalance: 150_000,   dailyWithdraw: 15_000 },
+  { key: "ultimate", label: "ULTIMATE ACCOUNT", name: "Ultimate Account", blurb: "Exclusive benefits and higher returns",    Icon: Award, color: "#F97316", status: "Upgrade available", fee: 3_500, maxBalance: 500_000,   dailyWithdraw: 50_000 },
+  { key: "diamond",  label: "DIAMOND ACCOUNT",  name: "Diamond Account",  blurb: "Our most prestigious membership tier",     Icon: Gem,   color: "#22D3EE", status: "Highest tier",      fee: 7_500, maxBalance: 2_000_000, dailyWithdraw: 200_000 },
 ];
 
 const money = (n: number) =>
   n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 
-function resolveTier(level: string | null | undefined): Tier {
-  const key = (level || "basic").toLowerCase();
-  return TIERS.find((x) => key.includes(x.key)) ?? TIERS[0];
-}
-
-export const AccountLevelCard = ({
-  level,
-}: {
-  level: string | null | undefined;
-}) => {
+export const AccountLevelCard = ({ level }: { level: string | null | undefined }) => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState<Tier | null>(null);
 
-  const current = useMemo(() => resolveTier(level), [level]);
-  const currentIndex = TIERS.findIndex((t) => t.key === current.key);
+  const key = (level || "basic").toLowerCase();
+  const t = useMemo(
+    () => TIERS.find((x) => key.includes(x.key)) ?? TIERS[0],
+    [key]
+  );
+  const { Icon, label, color, status } = t;
+  const currentIndex = TIERS.findIndex((x) => x.key === t.key);
   const isTop = currentIndex >= TIERS.length - 1;
-  const nextTiers = TIERS.filter((_, i) => i > currentIndex);
-  const { Icon, label, color } = current;
 
-  const goPay = (tier: Tier) => {
+  const close = () => {
     setOpen(false);
     setPicked(null);
+  };
+
+  const goPay = (tier: Tier) => {
+    close();
     const q = new URLSearchParams({
       amount: String(tier.fee),
       purpose: "membership_upgrade",
@@ -76,98 +76,110 @@ export const AccountLevelCard = ({
 
   return (
     <>
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-        <div className="text-xs font-medium tracking-wide text-white/50">
-          MEMBERSHIP TIER
-        </div>
-
-        <div className="mt-2 flex items-center gap-2">
-          <Icon size={22} color={color} />
-          <span className="text-lg font-bold" style={{ color }}>
+      {/* Card: same look and size as before, button sits on the side */}
+      <div
+        className="relative rounded-2xl p-5 text-white"
+        style={{ backgroundColor: "#34486B", border: `1px solid ${color}33` }}
+      >
+        <p className="text-[10px] tracking-widest text-white/60 font-semibold">ACCOUNT LEVEL</p>
+        <div className="mt-3 flex items-center gap-1.5">
+          <Icon className="h-[1.05em] w-[1.05em] shrink-0" strokeWidth={2.25} style={{ color }} />
+          <span className="font-extrabold text-lg leading-none" style={{ color }}>
             {label}
           </span>
         </div>
-
-        <div className="mt-2 text-sm text-white/60">
-          {isTop
-            ? "Top membership — full platform limits"
-            : "Higher tiers unlock larger balances & withdrawals"}
-        </div>
-
-        <div className="mt-3 space-y-1 text-sm text-white/80">
-          <div>Ceiling: ${money(current.maxBalance)}</div>
-          <div>Daily payout cap: ${money(current.dailyWithdraw)}</div>
-        </div>
+        <p className="text-xs text-white/55 mt-3">{status}</p>
 
         {!isTop && (
-          <Button
-            size="sm"
-            className="mt-4 gap-1"
+          <button
+            type="button"
             onClick={() => setOpen(true)}
+            className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-full bg-red-500/20 px-3 py-1.5 text-xs font-semibold text-red-200 transition hover:bg-red-500/30"
           >
-            Raise your limits
-            <ArrowUpRight size={16} />
-          </Button>
+            Upgrade
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
         )}
       </div>
 
+      {/* Modal */}
       <Dialog
         open={open}
-        onOpenChange={(v) => {
-          setOpen(v);
-          if (!v) setPicked(null);
-        }}
+        onOpenChange={(v) => (v ? setOpen(true) : close())}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Choose a higher tier</DialogTitle>
-            <DialogDescription>
-              Pay the one-time activation fee for the tier you want. After your
-              deposit is confirmed, your membership is moved up and the new
-              limits apply.
-            </DialogDescription>
+        <DialogContent className="max-h-[90vh] overflow-y-auto rounded-3xl p-0 sm:max-w-md">
+          <DialogHeader className="border-b px-6 py-5 text-left">
+            <DialogTitle>Upgrade Account</DialogTitle>
+            <DialogDescription>Select a plan to request an upgrade</DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-2">
-            {nextTiers.map((t) => {
-              const selected = picked?.key === t.key;
-              const TierIcon = t.Icon;
-              return (
-                <button
-                  key={t.key}
-                  type="button"
-                  onClick={() => setPicked(t)}
-                  className={`w-full rounded-xl border p-3 text-left transition ${
-                    selected
-                      ? "border-cyan-400/60 bg-cyan-400/10"
-                      : "border-white/10 bg-white/5 hover:border-white/20"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <TierIcon size={18} color={t.color} />
-                      <span className="font-semibold" style={{ color: t.color }}>
-                        {t.label}
-                      </span>
+          <div className="px-6 pb-2">
+            <p className="text-sm text-muted-foreground">
+              Current level: <span className="font-semibold text-foreground">{t.name}</span>
+              {" · "}Select an upgrade badge and make the required deposit.
+            </p>
+
+            <div className="mt-4 space-y-3">
+              {TIERS.slice(currentIndex).map((tier, i) => {
+                const isCurrent = i === 0;
+                const selected = picked?.key === tier.key;
+                const TierIcon = tier.Icon;
+                return (
+                  <button
+                    key={tier.key}
+                    type="button"
+                    disabled={isCurrent}
+                    onClick={() => setPicked(tier)}
+                    className={`w-full rounded-2xl border p-4 text-left transition ${
+                      isCurrent
+                        ? "cursor-default bg-muted/40 opacity-70"
+                        : selected
+                        ? "border-primary bg-primary/5 ring-1 ring-primary"
+                        : "hover:border-foreground/30"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <TierIcon className="h-4 w-4 shrink-0" style={{ color: tier.color }} />
+                        <span className="font-semibold">{tier.name}</span>
+                      </div>
+                      {isCurrent ? (
+                        <span className="text-xs tracking-wider text-muted-foreground">CURRENT</span>
+                      ) : selected ? (
+                        <Check className="h-4 w-4 text-primary" />
+                      ) : null}
                     </div>
-                    {selected && <Check size={18} className="text-cyan-400" />}
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/60">
-                    <span>Fee ${money(t.fee)}</span>
-                    <span>Max ${money(t.maxBalance)}</span>
-                    <span>Day ${money(t.dailyWithdraw)}</span>
-                  </div>
-                </button>
-              );
-            })}
+                    <p className="mt-1 text-sm text-muted-foreground">{tier.blurb}</p>
+                    <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                      <div>
+                        <p className="text-muted-foreground">{isCurrent ? "Fee paid" : "Upgrade fee"}</p>
+                        <p className="font-semibold">{isCurrent ? "—" : `$${money(tier.fee)}`}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Ceiling</p>
+                        <p className="font-semibold">${money(tier.maxBalance)}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Daily payout</p>
+                        <p className="font-semibold">${money(tier.dailyWithdraw)}</p>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>
-              Not now
+          <DialogFooter className="grid grid-cols-2 gap-3 px-6 pb-6 pt-4 sm:space-x-0">
+            <Button variant="outline" className="rounded-xl" onClick={close}>
+              Cancel
             </Button>
-            <Button disabled={!picked} onClick={() => picked && goPay(picked)}>
-              {picked ? `Continue · $${money(picked.fee)}` : "Select a tier"}
+            <Button
+              className="rounded-xl"
+              disabled={!picked}
+              onClick={() => picked && goPay(picked)}
+            >
+              {picked ? `Continue · $${money(picked.fee)}` : "Continue"}
             </Button>
           </DialogFooter>
         </DialogContent>
